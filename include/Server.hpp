@@ -5,20 +5,22 @@
 
 class Server {
     private:
-        std::string _password;
-        int         _port;
-        // pid_t       _socketfd;
-        //vetors or maps to save clients fd;
-        //methods for setting server;
+        std::string     			_password;
+        int             			_port;
+        int           				_serverSocketfd;
+        std::vector<struct pollfd>  _pollfds;
+		std::map<int, Client>		_clients;
 
         int parseArgs(int ac, char *av[]);
+		void setupServer();
+		void acceptClient();
     public:
         Server(int ac, char *av[]);
         Server(const Server &orig);
         Server&operator=(const Server &orig);
         ~Server();
-        // void startServer();
-        // void finishServer();
+        void startServer();
+        void finishServer();
 } ;
 
 #endif
