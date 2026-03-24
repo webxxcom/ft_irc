@@ -73,7 +73,6 @@ void Server::acceptClient(void) {
     if (clientSocketfd == -1) {
         throw ServerExceptions("Client not accpeted");
         close(this->_serverSocketfd);
-        //maybe just continue; 
     }
     //fcntl if could be used
     struct pollfd clientfd;
@@ -81,28 +80,57 @@ void Server::acceptClient(void) {
     clientfd.events = POLLIN;
     clientfd.revents = 0;
     this->_pollfds.push_back(clientfd);
+    Client newClient(clientSocketfd);
+    this->_clients[clientSocketfd] = newClient;
+}
+
+void Server::removeClient(int *i) {
+    close(this->_pollfds[*i].fd);
+    this->_clients.erase(this->_pollfds[*i].fd);
+    this->_pollfds.erase(this->_pollfds.begin() + *i);
+    (*i)--;
+}
+
+void Server::receiveClientData(int i) {
+    static std::string *buffer;
+    int bytesread;
+    bytesread = recv(this->_pollfds[i].fd, buffer, (sizeof(buffer) - 1), 0);
+    if (bytesread <= 0) {
+        if (bytesread == 0)
+            removeClient(&i);
+        else
+            throw ServerExceptions("recv() error");
+    }
+    this->_clients[this->_pollfds[i].fd].addtoBuffer(*buffer);
+    //receive data
+    //wait for \r\n, add to command to parse (probably Roman)
+    //also check here when client disconnects, clean up
+}
+
+void Server::messageClient(void) {
+    //to sent data to client, need to frist msg the buffer
 }
 
 void Server::startServer(void) {
     setupServer();
     while (g_serverRunning) {
         int status = poll(&this->_pollfds[0], this->_pollfds.size(), -1);
+        if (status == -1 && g_serverRunning == 0)
+            throw ServerExceptions("\nsignal catched");
         if (status == -1)
-            throw ServerExceptions("Poll failed");
-        for (int i; i < this->_pollfds.size(); i++) {
+            throw ServerExceptions("poll() error");
+        for (size_t i; i < this->_pollfds.size(); i++) {
             if (this->_pollfds[i].revents == 0)
                 continue;
             else if (this->_pollfds[i].fd == this->_serverSocketfd 
                 && this->_pollfds[i].revents & POLLIN) {
                     acceptClient();
-                //accept, fcntl, newfd to pollfd, new client obj
             }
             else if (this->_pollfds[i].revents & POLLIN) {
-                //event on clients socket
-                //recv to read the info
+                receiveClientData(i);
             }
             else if (this->_pollfds[i].revents & POLLOUT) {
-                //to sent data to client, need to frist msg the buffer
+                messageClient();
             }
             else if (this->_pollfds[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
                 //issue with client, need to remove him, free fd, erase from all lists

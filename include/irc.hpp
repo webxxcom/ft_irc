@@ -11,14 +11,15 @@
 #include <iostream>
 #include <string>
 #include <cstdlib>
-#include "Server.hpp"
-#include "Exceptions.hpp"
-#include "Client.hpp"
 #include <unistd.h>
 #include <vector>
 #include <map>
 #include <csignal>
 
-volatile sig_atomic_t g_serverRunning = 1;
+#include "Client.hpp"
+#include "Server.hpp"
+#include "Exceptions.hpp"
+
+extern volatile sig_atomic_t g_serverRunning;
 
 #endif

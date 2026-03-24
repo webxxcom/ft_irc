@@ -5,9 +5,19 @@
 
 class Client {
     private:
-        std::string     bufferMsg;
-        int             clientfd;
+        int             _clientfd;
+        std::string     _nickName;
+        std::string     _userName;
+        std::string     _address;
+        std::string     _buffer;
+        std::string     _receivedMsg;
     public:
+        Client();
+        Client(int fd);
+        Client(const Client &orig);
+        Client&operator=(const Client &orig);
+        ~Client();
+        void addtoBuffer(std::string msg);
 } ;
 
 

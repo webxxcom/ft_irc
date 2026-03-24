@@ -2,7 +2,10 @@
 #include "../include/irc.hpp"
 #include "../include/Server.hpp"
 
+volatile sig_atomic_t g_serverRunning = 1;
+
 void signal_handler(int sig) {
+    (void)sig;
     g_serverRunning = 0;
 }
 
@@ -16,6 +19,7 @@ int main(int ac, char *av[])
     }
     catch (ServerExceptions &e) {
         std::cout << e.what() << std::endl;
+        //need to close all fds, remove clients atd.
     }
     return 0;
 }
