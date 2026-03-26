@@ -15,6 +15,7 @@
 #include <vector>
 #include <map>
 #include <csignal>
+#include <string.h>
 
 #include "Client.hpp"
 #include "Server.hpp"

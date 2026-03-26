@@ -3,7 +3,7 @@
 Client::Client() {}
 
 Client::Client(int fd) : _clientfd(fd) {
-    std::cout << "Client created" << std::endl;
+    std::cout << "Client connected" << std::endl;
 }
 
 //todo
@@ -15,13 +15,20 @@ Client &Client::operator=(const Client &orig) {
     (void)orig;
     return *this;
 }
-Client::~Client() {}
+Client::~Client() {
+    // std::cout << "Client disconnected" << std::endl;
+}
 //
 
 void Client::addtoBuffer(std::string msg) {
     this->_buffer.append(msg);
-    if (this->_buffer.compare((this->_buffer.length() - 5), 4, "\r\n") == 0) {
-        this->_receivedMsg = this->_buffer;
-        this->_buffer.clear();
+    std::cout << "buffer: " << this->_buffer << std::endl;
+    std::cout << "msg: " << msg << std::endl;
+    std::cout << "pass: " << this->_receivedMsg << std::endl;
+    size_t endMsg;
+    while ((endMsg = this->_buffer.find("\r\n")) != std::string::npos) {
+        std::string singleMsg = this->_buffer.substr(0, endMsg);
+        this->_receivedMsg = singleMsg;
+        this->_buffer.erase(0, endMsg + 2);
     }
 }
