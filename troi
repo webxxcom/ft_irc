@@ -1,0 +1,192 @@
+STRTOL(3)         Linux Programmer's Manual        STRTOL(3)
+
+NNAAMMEE
+       strtol,  strtoll, strtoq - convert a string to a long
+       integer
+
+SSYYNNOOPPSSIISS
+       ##iinncclluuddee <<ssttddlliibb..hh>>
+
+       lloonngg ssttrrttooll((ccoonnsstt cchhaarr **_n_p_t_r,, cchhaarr ****_e_n_d_p_t_r,, iinntt _b_a_s_e));;
+
+       lloonngg lloonngg ssttrrttoollll((ccoonnsstt cchhaarr **_n_p_t_r,, cchhaarr ****_e_n_d_p_t_r,, iinntt _b_a_s_e));;
+
+   Feature Test  Macro  Requirements  for  glibc  (see  ffeeaa‐‐
+   ttuurree__tteesstt__mmaaccrrooss(7)):
+
+       ssttrrttoollll():
+           _ISOC99_SOURCE
+               || /* Glibc versions <= 2.19: */ _SVID_SOURCE
+           || _BSD_SOURCE
+
+DDEESSCCRRIIPPTTIIOONN
+       The ssttrrttooll() function converts the  initial  part  of
+       the  string in _n_p_t_r to a long integer value according
+       to the given _b_a_s_e, which must be between 2 and 36 in‐
+       clusive, or be the special value 0.
+
+       The  string  may  begin  with  an arbitrary amount of
+       white space (as determined by iissssppaaccee(3)) followed by
+       a  single  optional '+' or '-' sign.  If _b_a_s_e is zero
+       or 16, the string may then include  a  "0x"  or  "0X"
+       prefix,  and the number will be read in base 16; oth‐
+       erwise, a zero _b_a_s_e is taken as 10  (decimal)  unless
+       the  next character is '0', in which case it is taken
+       as 8 (octal).
+
+       The remainder of the string is converted  to  a  _l_o_n_g
+       value  in  the  obvious manner, stopping at the first
+       character which is not a valid  digit  in  the  given
+       base.   (In  bases above 10, the letter 'A' in either
+       uppercase or lowercase represents 10, 'B'  represents
+       11, and so forth, with 'Z' representing 35.)
+
+       If _e_n_d_p_t_r is not NULL, ssttrrttooll() stores the address of
+       the first invalid character  in  _*_e_n_d_p_t_r.   If  there
+       were  no  digits at all, ssttrrttooll() stores the original
+       value of _n_p_t_r in _*_e_n_d_p_t_r (and returns 0).  In partic‐
+       ular,  if  _*_n_p_t_r  is not '\0' but _*_*_e_n_d_p_t_r is '\0' on
+       return, the entire string is valid.
+
+       The ssttrrttoollll() function works just like  the  ssttrrttooll()
+       function but returns a _l_o_n_g _l_o_n_g integer value.
+
+RREETTUURRNN VVAALLUUEE
+       The  ssttrrttooll() function returns the result of the con‐
+       version, unless the value would  underflow  or  over‐
+       flow.   If  an  underflow  occurs,  ssttrrttooll()  returns
+       LLOONNGG__MMIINN.  If an overflow  occurs,  ssttrrttooll()  returns
+       LLOONNGG__MMAAXX.   In  both  cases,  _e_r_r_n_o is set to EERRAANNGGEE.
+       Precisely  the  same  holds   for   ssttrrttoollll()   (with
+       LLLLOONNGG__MMIINN  and  LLLLOONNGG__MMAAXX  instead  of  LLOONNGG__MMIINN  and
+       LLOONNGG__MMAAXX).
+
+EERRRROORRSS
+       EEIINNVVAALL (not in C99) The given _b_a_s_e contains an unsup‐
+              ported value.
+
+       EERRAANNGGEE The resulting value was out of range.
+
+       The  implementation  may  also set _e_r_r_n_o to EEIINNVVAALL in
+       case no conversion was performed (no digits seen, and
+       0 returned).
+
+AATTTTRRIIBBUUTTEESS
+       For an explanation of the terms used in this section,
+       see aattttrriibbuutteess(7).
+
+       ┌──────────────────────────────┬───────────────┬────────────────┐
+       │IInntteerrffaaccee                     │ AAttttrriibbuuttee     │ VVaalluuee          │
+       ├──────────────────────────────┼───────────────┼────────────────┤
+       │ssttrrttooll(), ssttrrttoollll(), ssttrrttooqq() │ Thread safety │ MT-Safe locale │
+       └──────────────────────────────┴───────────────┴────────────────┘
+CCOONNFFOORRMMIINNGG TTOO
+       ssttrrttooll(): POSIX.1-2001, POSIX.1-2008, C89, C99  SVr4,
+       4.3BSD.
+
+       ssttrrttoollll(): POSIX.1-2001, POSIX.1-2008, C99.
+
+NNOOTTEESS
+       Since  ssttrrttooll()  can legitimately return 0, LLOONNGG__MMAAXX,
+       or LLOONNGG__MMIINN (LLLLOONNGG__MMAAXX or LLLLOONNGG__MMIINN for ssttrrttoollll()) on
+       both  success and failure, the calling program should
+       set _e_r_r_n_o to 0 before the call, and then determine if
+       an  error  occurred  by  checking whether _e_r_r_n_o has a
+       nonzero value after the call.
+
+       According to POSIX.1, in locales other than  "C"  and
+       "POSIX",  these functions may accept other, implemen‐
+       tation-defined numeric strings.
+
+       BSD also has
+
+           qquuaadd__tt ssttrrttooqq((ccoonnsstt cchhaarr **_n_p_t_r,, cchhaarr ****_e_n_d_p_t_r,, iinntt _b_a_s_e));;
+
+       with completely analogous definition.   Depending  on
+       the wordsize of the current architecture, this may be
+       equivalent to ssttrrttoollll() or to ssttrrttooll().
+
+EEXXAAMMPPLLEESS
+       The program shown below demonstrates the use of  ssttrr‐‐
+       ttooll().   The  first command-line argument specifies a
+       string from which ssttrrttooll()  should  parse  a  number.
+       The  second (optional) argument specifies the base to
+       be used for the conversion.  (This argument  is  con‐
+       verted to numeric form using aattooii(3), a function that
+       performs no error checking and has a  simpler  inter‐
+       face  than  ssttrrttooll().)   Some examples of the results
+       produced by this program are the following:
+
+           $ ..//aa..oouutt 112233
+           strtol() returned 123
+           $ ..//aa..oouutt ''    112233''
+           strtol() returned 123
+           $ ..//aa..oouutt 112233aabbcc
+           strtol() returned 123
+           Further characters after number: "abc"
+           $ ..//aa..oouutt 112233aabbcc 5555
+           strtol: Invalid argument
+           $ ..//aa..oouutt ''''
+           No digits were found
+           $ ..//aa..oouutt 44000000000000000000
+           strtol: Numerical result out of range
+
+   PPrrooggrraamm ssoouurrccee
+
+       #include <stdlib.h>
+       #include <limits.h>
+       #include <stdio.h>
+       #include <errno.h>
+
+       int
+       main(int argc, char *argv[])
+       {
+           int base;
+           char *endptr, *str;
+           long val;
+
+           if (argc < 2) {
+               fprintf(stderr, "Usage: %s str [base]\n", argv[0]);
+               exit(EXIT_FAILURE);
+           }
+
+           str = argv[1];
+           base = (argc > 2) ? atoi(argv[2]) : 0;
+
+           errno = 0;    /* To distinguish success/failure after call */
+           val = strtol(str, &endptr, base);
+
+           /* Check for various possible errors */
+
+           if (errno != 0) {
+               perror("strtol");
+               exit(EXIT_FAILURE);
+           }
+
+           if (endptr == str) {
+               fprintf(stderr, "No digits were found\n");
+               exit(EXIT_FAILURE);
+           }
+
+           /* If we got here, strtol() successfully parsed a number */
+
+           printf("strtol() returned %ld\n", val);
+
+           if (*endptr != '\0')        /* Not necessarily an error... */
+               printf("Further characters after number: \"%s\"\n", endptr);
+
+           exit(EXIT_SUCCESS);
+       }
+
+SSEEEE AALLSSOO
+       aattooff(3), aattooii(3), aattooll(3),  ssttrrttoodd(3),  ssttrrttooiimmaaxx(3),
+       ssttrrttoouull(3),
+
+CCOOLLOOPPHHOONN
+       This  page  is part of release 5.10 of the Linux _m_a_n_-
+       _p_a_g_e_s project.  A description of the project,  infor‐
+       mation  about  reporting bugs, and the latest version
+       of     this     page,     can     be     found     at
+       https://www.kernel.org/doc/man-pages/.
+
+GNU                      2020-11-01                STRTOL(3)

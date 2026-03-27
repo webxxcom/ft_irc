@@ -20,15 +20,19 @@ Client::~Client() {
 }
 //
 
+std::vector<std::string> Client::getinMsg(void) {
+    return this->_inMsg;
+}
+
 void Client::addtoBuffer(std::string msg) {
     this->_buffer.append(msg);
-    std::cout << "buffer: " << this->_buffer << std::endl;
-    std::cout << "msg: " << msg << std::endl;
-    std::cout << "pass: " << this->_receivedMsg << std::endl;
+    // std::cout << "buffer: " << this->_buffer << std::endl;
+    // std::cout << "msg: " << msg << std::endl;
+    // std::cout << "pass: " << this->_outMsg << std::endl;
     size_t endMsg;
     while ((endMsg = this->_buffer.find("\r\n")) != std::string::npos) {
         std::string singleMsg = this->_buffer.substr(0, endMsg);
-        this->_receivedMsg = singleMsg;
+        this->_outMsg.push_back(singleMsg);
         this->_buffer.erase(0, endMsg + 2);
     }
 }

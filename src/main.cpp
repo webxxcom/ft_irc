@@ -1,6 +1,6 @@
 
-#include "../include/irc.hpp"
-#include "../include/Server.hpp"
+#include "irc.hpp"
+#include "Server.hpp"
 
 volatile sig_atomic_t g_serverRunning = 1;
 
@@ -17,7 +17,7 @@ int main(int ac, char *av[])
         Server s(ac, av);
         s.startServer();
     }
-    catch (ServerExceptions &e) {
+    catch (ServerException &e) {
         std::cout << e.what() << std::endl;
         //need to close all fds, remove clients atd.
     }

@@ -10,20 +10,26 @@ class Server {
         int           				_serverSocketfd;
         std::vector<struct pollfd>  _pollfds;
 		std::map<int, Client>		_clients;
+        std::string                 _msgforClient;
 
         int parseArgs(int ac, char *av[]);
 		void setupServer();
 		void acceptClient();
         void receiveClientData(int &i);
-        void messageClient();
+        void messageClient(int &i);
         void removeClient(int &i);
     public:
         Server(int ac, char *av[]);
         Server(const Server &orig);
-        Server&operator=(const Server &orig);
         ~Server();
         void startServer();
         void finishServer();
+} ;
+
+enum returned {
+    ARGS_NUM_INVALID,
+    PORT_NUM_INVALID,
+    OK,
 } ;
 
 #endif

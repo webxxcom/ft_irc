@@ -4,15 +4,12 @@
 #include "irc.hpp"
 #include <exception>
 
-//does excaption class need orthodox canonical form also? 
-//separate definition needed?
-// ! ServerException, without `s'
-class ServerExceptions : public std::exception {
+class ServerException : public std::exception {
     private:
         std::string _msg;
     public:
-        ServerExceptions(std::string msg) : _msg(msg) {};
-        virtual ~ServerExceptions() throw() {};
+        ServerException(std::string msg) : _msg(msg) {};
+        virtual ~ServerException() throw() {};
         virtual const char *what() const throw() {
             return _msg.c_str();
         };
