@@ -2,6 +2,7 @@
 #include "irc.hpp"
 
 //for properly closing fds later, probably have to redo because of try/catch
+// ! EDIT maybe remove magic numbers with enums for status codes?
 Server::Server(int ac, char *av[]) : _serverSocketfd(-1) {
     int status = this->parseArgs(ac, av);
     if (status == 1)
@@ -25,13 +26,14 @@ Server::~Server(){}
 
 int Server::parseArgs(int ac, char *av[]) {
     if (ac != 3)
-        return 1;
+        return 1; // !
+    // ! want to be sure that number has no non-digits at the end but we can use std::strtol
     int p = std::atoi(av[1]);
     std::string strPort(av[1]);
     if (p == 0 && !strPort.compare("0"))
-        return 2;
+        return 2; // ! Magic number again?
     if (p < 1024 || p > 65536)
-        return 2;
+        return 2; // ! hmmmmmm..
     this->_port = p;
     this->_password = av[2];
     return 0;
@@ -77,7 +79,7 @@ void Server::acceptClient(void) {
     socklen_t lenc = sizeof(c);
     int clientSocketfd = accept(this->_serverSocketfd, (struct sockaddr*)&c, &lenc);
     if (clientSocketfd == -1) {
-        std::cerr << "accept() error" << std::endl;
+        std::cerr << "accept() error" << std::endl; // ! We can implement ClientException instead of changing to std::cerr
         return ;
     }
     //fcntl if could be used
@@ -105,15 +107,16 @@ void Server::removeClient(int &i) {
 void Server::receiveClientData(int &i) {
     char buffer[1024];
     memset(buffer, 0, sizeof(buffer));
-    int bytesread;
+    int bytesread; 
     bytesread = recv(this->_pollfds[i].fd, buffer, (sizeof(buffer) - 1), 0);
+    // ? gotta null-terminate the buffer?
     if (bytesread <= 0) {
         std::cout << bytesread << std::endl;
         if (bytesread == 0)
             std::cout << "Client disconnected" << std::endl;
         else
             std::cerr << "recv() error" << std::endl;
-        removeClient(i);
+        removeClient(i); // ! was client added before?
         return ;
     }
     this->_clients[this->_pollfds[i].fd].addtoBuffer(buffer);

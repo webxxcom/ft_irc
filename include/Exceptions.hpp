@@ -6,6 +6,7 @@
 
 //does excaption class need orthodox canonical form also? 
 //separate definition needed?
+// ! ServerException, without `s'
 class ServerExceptions : public std::exception {
     private:
         std::string _msg;

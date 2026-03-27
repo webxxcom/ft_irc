@@ -1,5 +1,5 @@
 CXX      := c++
-CXXFLAGS := -Iinclude -g -Wall -Wextra -Werror -D_GLIBCXX_DEBUG
+CXXFLAGS := -Iinclude -g -D_GLIBCXX_DEBUG #-Wall -Wextra -Werror 
 CXXFLAGS += -std=c++98
 
 SRC_DIR  := src
