@@ -9,15 +9,16 @@ class Client {
         std::string     _nickName;
         std::string     _userName;
         std::string     _address;
-        std::string     _buffer;
-        std::string     _receivedMsg;
+        std::vector<std::string>     _out;
     public:
         Client();
         Client(int fd);
         Client(const Client &orig);
         Client&operator=(const Client &orig);
         ~Client();
-        void addtoBuffer(std::string msg);
+        void parseCommands(std::string msg);
+
+        std::vector<std::string>& getReceivedMessages();
 } ;
 
 

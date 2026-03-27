@@ -1,5 +1,7 @@
 #include "Server.hpp"
 #include "irc.hpp"
+#include <cstring>
+#include <sstream>
 
 //for properly closing fds later, probably have to redo because of try/catch
 // ! EDIT maybe remove magic numbers with enums for status codes?
@@ -104,12 +106,53 @@ void Server::removeClient(int &i) {
     i--;
 }
 
+// The data is sent via TCP protocol which means that it can and most likely will be
+// splitted into several chunks of data. Meaning that we can get just half of a message
+void Server::handleClientData(char *buffer, int const fd)
+{
+    Client receivedClient;
+
+    receivedClient.parseCommands(buffer);
+
+
+    this->_clients[fd] = receivedClient;
+    //receive data
+    //wait for \r\n, add to command to parse (probably Roman)
+    //also check here when client disconnects, clean up
+}
+
+void Server::handleClientCommands(Client &client)
+{
+    // RAHHCNXZKKDLASKZ RRAAAAAAAAAAAAAAAAAAAAAAAh
+    for (size_t i = 0; i < client.getReceivedMessages().size(); ++i)
+    {
+        // dont look here
+        ****
+        *****
+        *
+        * *******
+        * *
+        * *
+        * *
+        * ***
+        std::stringstream ss;
+        ss << client.getReceivedMessages()[i];
+        std::string line;
+        std::getline(ss, line, ' ');
+        if (line == "PASS")
+        {
+            std::getline(ss, line, ' ');
+            if (line != this->_password)
+                std::cout << "INTRUDER\n";
+        }
+    }
+}
+
 void Server::receiveClientData(int &i) {
-    char buffer[1024];
-    memset(buffer, 0, sizeof(buffer));
-    int bytesread; 
+    static char buffer[1024];
+    int bytesread;
+    
     bytesread = recv(this->_pollfds[i].fd, buffer, (sizeof(buffer) - 1), 0);
-    // ? gotta null-terminate the buffer?
     if (bytesread <= 0) {
         std::cout << bytesread << std::endl;
         if (bytesread == 0)
@@ -119,10 +162,21 @@ void Server::receiveClientData(int &i) {
         removeClient(i); // ! was client added before?
         return ;
     }
-    this->_clients[this->_pollfds[i].fd].addtoBuffer(buffer);
-    //receive data
-    //wait for \r\n, add to command to parse (probably Roman)
-    //also check here when client disconnects, clean up
+    buffer[bytesread] = '\0';
+    std::cout << "buffer: " << buffer << std::endl;
+
+    // Extracting the commands from the buffer
+    std::string bufferStr(buffer, bytesread);
+    size_t endMsg;
+    while ((endMsg = bufferStr.find("\r\n")) != std::string::npos) {
+        std::string singleMsg = bufferStr.substr(0, endMsg);
+        this->_clients[this->_pollfds[i].fd].getReceivedMessages().push_back(singleMsg);
+        bufferStr.erase(0, endMsg + 2);
+    }
+    std::memmove(buffer, bufferStr.c_str(), bufferStr.size());
+
+    // Handle the messages
+    this->handleClientCommands(this->_clients[this->_pollfds[i].fd]);
 }
 
 void Server::messageClient(void) {

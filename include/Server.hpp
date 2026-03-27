@@ -17,6 +17,8 @@ class Server {
         void receiveClientData(int &i);
         void messageClient();
         void removeClient(int &i);
+        void handleClientData(char *buffer, int const fd);
+        void handleClientCommands(Client &client);
     public:
         Server(int ac, char *av[]);
         Server(const Server &orig);
