@@ -106,77 +106,97 @@ void Server::removeClient(int &i) {
     i--;
 }
 
-// The data is sent via TCP protocol which means that it can and most likely will be
-// splitted into several chunks of data. Meaning that we can get just half of a message
-void Server::handleClientData(char *buffer, int const fd)
-{
-    Client receivedClient;
-
-    receivedClient.parseCommands(buffer);
-
-
-    this->_clients[fd] = receivedClient;
-    //receive data
-    //wait for \r\n, add to command to parse (probably Roman)
-    //also check here when client disconnects, clean up
-}
-
 void Server::handleClientCommands(Client &client)
 {
-    // RAHHCNXZKKDLASKZ RRAAAAAAAAAAAAAAAAAAAAAAAh
-    for (size_t i = 0; i < client.getReceivedMessages().size(); ++i)
+    std::stack<std::string> &mssgs = client.getReceivedMessages();
+
+    while (!mssgs.empty())
     {
-        // dont look here
-        ****
-        *****
-        *
-        * *******
-        * *
-        * *
-        * *
-        * ***
+        std::cout << "Top ele: " << mssgs.top() << '\n';
         std::stringstream ss;
-        ss << client.getReceivedMessages()[i];
+        ss << mssgs.top();
+        mssgs.pop();
+
         std::string line;
         std::getline(ss, line, ' ');
         if (line == "PASS")
         {
+            // Client sent the password they used to connect to the server
             std::getline(ss, line, ' ');
             if (line != this->_password)
-                std::cout << "INTRUDER\n";
+            {
+                client.setPassword(line);
+                // need some password logic
+            }
+        }
+        else if (line == "NICK")
+        {
+            // Client sent their nickname
+            std::getline(ss, line, ' ');
+            client.setNickname(line);
+        }
+        else if (line == "CAP")
+        {
+            // Client sent a request to get the server's capabilities
+
+            // CAP LS 302
+
+            // some capabilities logic
+            // need to answer to the server?
+
+            // Answer like CAP * LS :<capabilities>
+        }
+        else if (line == "USER")
+        {
+            // Client sent their username, mode. `*' and real name
+
+            // Username
+            std::getline(ss, line, ' ');
+            client.setUsername(line);
+
+            // Mode
+            std::getline(ss, line, ' ');
+
+            // Asterix
+            std::getline(ss, line, ' ');
+
+            // Real name
+            std::getline(ss, line, ' ');
+            client.setRealname(line);
         }
     }
 }
 
-void Server::receiveClientData(int &i) {
-    static char buffer[1024];
-    int bytesread;
-    
-    bytesread = recv(this->_pollfds[i].fd, buffer, (sizeof(buffer) - 1), 0);
-    if (bytesread <= 0) {
-        std::cout << bytesread << std::endl;
+void Server::receiveClientData(int &i, Client &client) {
+    std::string &buffer = client.getRecvBuffer();
+    char temp[512];
+
+    // Getting the data from the socket
+    ssize_t bytesread = recv(this->_pollfds[i].fd, temp, sizeof(temp), 0);
+    if (bytesread > 0)
+    {
+        buffer.append(temp, bytesread);
+
+        std::size_t endMsg;
+        while ((endMsg = buffer.find("\r\n")) != std::string::npos)
+        {
+            std::string singleMsg = buffer.substr(0, endMsg);
+
+            client.getReceivedMessages().push(singleMsg);
+
+            std::cout << "msg: " << singleMsg << '\n';
+            buffer.erase(0, endMsg + 2);
+        }
+        handleClientCommands(client);
+    }
+    else
+    {
         if (bytesread == 0)
             std::cout << "Client disconnected" << std::endl;
         else
             std::cerr << "recv() error" << std::endl;
-        removeClient(i); // ! was client added before?
-        return ;
+        removeClient(i);
     }
-    buffer[bytesread] = '\0';
-    std::cout << "buffer: " << buffer << std::endl;
-
-    // Extracting the commands from the buffer
-    std::string bufferStr(buffer, bytesread);
-    size_t endMsg;
-    while ((endMsg = bufferStr.find("\r\n")) != std::string::npos) {
-        std::string singleMsg = bufferStr.substr(0, endMsg);
-        this->_clients[this->_pollfds[i].fd].getReceivedMessages().push_back(singleMsg);
-        bufferStr.erase(0, endMsg + 2);
-    }
-    std::memmove(buffer, bufferStr.c_str(), bufferStr.size());
-
-    // Handle the messages
-    this->handleClientCommands(this->_clients[this->_pollfds[i].fd]);
 }
 
 void Server::messageClient(void) {
@@ -199,7 +219,7 @@ void Server::startServer(void) {
                     acceptClient();
             }
             else if (this->_pollfds[i].revents & POLLIN) {
-                receiveClientData(i);
+                receiveClientData(i, this->_clients[this->_pollfds[i].fd]);
             }
             else if (this->_pollfds[i].revents & POLLOUT) {
                 messageClient();

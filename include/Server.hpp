@@ -14,10 +14,9 @@ class Server {
         int parseArgs(int ac, char *av[]);
 		void setupServer();
 		void acceptClient();
-        void receiveClientData(int &i);
+        void receiveClientData(int &i, Client &client);
         void messageClient();
         void removeClient(int &i);
-        void handleClientData(char *buffer, int const fd);
         void handleClientCommands(Client &client);
     public:
         Server(int ac, char *av[]);
