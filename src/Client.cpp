@@ -15,6 +15,7 @@ Client &Client::operator=(const Client &orig) {
     (void)orig;
     return *this;
 }
+
 Client::~Client() {
     // std::cout << "Client disconnected" << std::endl;
 }

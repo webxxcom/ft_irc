@@ -15,6 +15,7 @@
 #include <map>
 #include <csignal>
 #include <string.h>
+#include <cerrno>
 
 #include "Client.hpp"
 #include "Server.hpp"

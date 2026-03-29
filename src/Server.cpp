@@ -27,15 +27,13 @@ int Server::parseArgs(int ac, char *av[]) {
         return ARGS_NUM_INVALID;
     char *rest;
     int p = strtol(av[1], &rest, 10);
-    std::cout << "p: " << p << std::endl;
-    std::cout << "rest: " << rest << std::endl;
     const bool range_error = errno == ERANGE;
     if (range_error)
         return PORT_NUM_INVALID;
     if (av[1] == rest)
         return PORT_NUM_INVALID;
-    // if (rest != '\0')
-    //     return PORT_NUM_INVALID;
+    if (*rest != '\0')
+        return PORT_NUM_INVALID;
     if (p < 1024 || p > 65536)
         return PORT_NUM_INVALID;
     this->_port = p;
@@ -119,6 +117,10 @@ void Server::receiveClientData(int &i) {
 void Server::messageClient(int &i) {
     ssize_t bytessend;
     std::vector<std::string> msgtoSend = this->_clients[this->_pollfds[i].fd].getinMsg();
+    if (msgtoSend[0].empty()) { //or could do bool msgready
+        return ;
+    } 
+    //static int, probably cant empty
     for (int i = 0; i < msgtoSend.size(); i++) {
         while (bytessend) {
             bytessend = send(this->_pollfds[i].fd, &msgtoSend[i], sizeof(msgtoSend[i]), 0);
@@ -126,6 +128,8 @@ void Server::messageClient(int &i) {
         if (bytessend == -1)
             std::cerr << "send() error" << std::endl;
     }
+    //have to empty all / could fix bool
+
 }
 
 void Server::finishServer(void) {
