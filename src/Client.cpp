@@ -3,17 +3,27 @@
 
 Client::Client() {}
 
-Client::Client(int fd) : _clientfd(fd) {
+Client::Client(int fd) : _fd(fd) {
     std::cout << "Client connected" << std::endl;
 }
 
-//todo
-Client::Client(const Client &orig) {
-    (void)orig;
+Client::Client(const Client &other)
+{
+    *this = other;
 }
 
-Client &Client::operator=(const Client &orig) {
-    (void)orig;
+Client &Client::operator=(const Client &other)
+{
+    _state = other._state;
+    _realname = other._realname;
+    _fd = other._fd;
+    _nickname = other._nickname;
+    _username = other._username;
+    _address = other._address;
+    _buffer = other._buffer;
+    _outMsg = other._outMsg;
+    _inMsg = other._inMsg;
+    
     return *this;
 }
 
@@ -26,21 +36,27 @@ std::string &Client::getRecvBuffer() { return this->_buffer; }
 const std::string &Client::getNickname() const { return _nickname; }
 const std::string &Client::getUsername() const { return _username; }
 const std::string &Client::getRealname() const { return _realname; }
+int Client::getFd() const { return _fd; }
 
 bool Client::isRegistered() const
 {
-    return state.has_nick && state.has_user && state.pass_ok;
+    return _state.has_nick && _state.has_user && _state.pass_ok;
+}
+
+bool Client::hasNickname() const
+{
+    return _state.has_nick;
 }
 
 void Client::setPassword(std::string const&)
 {
-    state.pass_ok = true;
+    _state.pass_ok = true;
 }
 
 void Client::setUsername(std::string const& realname)
 {
     _username = realname;
-    state.has_user = true;
+    _state.has_user = true;
 }
 
 void Client::setRealname(std::string const& realname)
@@ -51,7 +67,7 @@ void Client::setRealname(std::string const& realname)
 void Client::setNickname(std::string const& nickname)
 {
     _nickname = nickname;
-    state.has_nick = true;
+    _state.has_nick = true;
 }
 
 std::vector<std::string> Client::getinMsg(void) {
@@ -69,4 +85,9 @@ void Client::addtoBuffer(std::string msg) {
         this->_outMsg.push_back(singleMsg);
         this->_buffer.erase(0, endMsg + 2);
     }
+}
+
+void Client::getMsg(std::string const& msg)
+{
+    _inMsg.push_back(msg);
 }

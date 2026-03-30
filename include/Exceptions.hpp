@@ -1,18 +1,23 @@
-#ifndef EXCEPTIONS_HPP
-#define EXCEPTIONS_HPP
 
-#include "irc.hpp"
-#include <exception>
+#pragma once
 
-class ServerException : public std::exception {
-    private:
-        std::string _msg;
-    public:
-        ServerException(std::string msg) : _msg(msg) {};
-        virtual ~ServerException() throw() {};
-        virtual const char *what() const throw() {
-            return _msg.c_str();
-        };
-} ;
+#include <stdexcept>
+#include <string>
 
-#endif
+// Base class for any server exception
+class ServerException : public std::runtime_error {
+public:
+    ServerException(std::string const& msg);
+};
+
+// Exception after which server must terminate
+class ServerErrorException : public ServerException {
+public:
+    ServerErrorException(std::string const& msg);
+};
+
+// Exception caused by some client bad behavior
+class ClientException : public ServerException {
+public:
+    ClientException(std::string const& msg);
+};

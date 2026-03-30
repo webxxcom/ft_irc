@@ -7,8 +7,8 @@ OBJ_DIR  := obj
 INC_DIR  := include
 
 # Files 
-SRCS     := $(SRC_DIR)/main.cpp\
-			$(SRC_DIR)/Server.cpp\
+SRCS     := $(SRC_DIR)/main.cpp		\
+			$(SRC_DIR)/Server.cpp	$(SRC_DIR)/Exceptions.cpp \
 			$(SRC_DIR)/Client.cpp
 OBJS     := $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SRCS))
 NAME     := irc

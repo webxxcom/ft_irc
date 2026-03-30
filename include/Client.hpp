@@ -13,9 +13,9 @@ struct ClientState
 
 class Client {
     private:
-        ClientState                     state; // state to check the state
+        ClientState                     _state; // state to check the state
         std::string                     _realname; // added realname just because
-        int                             _clientfd;
+        int                             _fd;
         std::string                     _nickname;
         std::string                     _username;
         std::string                     _address;
@@ -37,7 +37,9 @@ class Client {
         const std::string& getNickname() const;
         const std::string& getUsername() const;
         const std::string& getRealname() const;
+        int getFd() const;
         bool isRegistered() const;
+        bool hasNickname() const;
 
         // Setters
         void setNickname(std::string const& nickname);
@@ -47,6 +49,8 @@ class Client {
         
         std::vector<std::string> getinMsg(void);
         void addtoBuffer(std::string msg);
+
+        void getMsg(std::string const& msg);
 } ;
 
 #endif

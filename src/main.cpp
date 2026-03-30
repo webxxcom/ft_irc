@@ -2,7 +2,7 @@
 #include "irc.hpp"
 #include "Server.hpp"
 
-volatile sig_atomic_t g_serverRunning = 1;
+volatile sig_atomic_t g_serverRunning = 1; // Can move it to Server class?
 
 void signal_handler(int sig) {
     (void)sig;
@@ -17,7 +17,7 @@ int main(int ac, char *av[])
         Server s(ac, av);
         s.startServer();
     }
-    catch (ServerException &e) {
+    catch (ServerErrorException &e) {
         std::cout << e.what() << std::endl;
         //need to close all fds, remove clients atd.
     }
