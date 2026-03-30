@@ -3,14 +3,12 @@
 #include <cstring>
 #include <sstream>
 
-//for properly closing fds later, probably have to redo because of try/catch
-// ! EDIT maybe remove magic numbers with enums for status codes?
 Server::Server(int ac, char *av[]) : _serverSocketfd(-1) {
     int status = this->parseArgs(ac, av);
-    if (status == 1)
-        throw ServerExceptions("Arguments invalid\nRun with: ./irc <port> <password>");
-    else if (status == 2)
-        throw ServerExceptions("Port number is invalid");
+    if (status == ARGS_NUM_INVALID)
+        throw ServerException("Arguments invalid\nRun with: ./irc <port> <password>");
+    else if (status == PORT_NUM_INVALID)
+        throw ServerException("Port number is invalid");
     std::cout << "Server created" << std::endl;
 }
 
@@ -19,26 +17,30 @@ Server::Server(int ac, char *av[]) : _serverSocketfd(-1) {
 Server::Server(const Server &orig) {
     (void)orig;
 }
-Server &Server::operator=(const Server &orig) {
-    (void)orig;
-    return *this;
+
+Server::~Server() {
+    if (this->_serverSocketfd != -1)
+        close(this->_serverSocketfd);
 }
-Server::~Server(){}
 //
 
 int Server::parseArgs(int ac, char *av[]) {
     if (ac != 3)
-        return 1; // !
-    // ! want to be sure that number has no non-digits at the end but we can use std::strtol
-    int p = std::atoi(av[1]);
-    std::string strPort(av[1]);
-    if (p == 0 && !strPort.compare("0"))
-        return 2; // ! Magic number again?
+        return ARGS_NUM_INVALID;
+    char *rest;
+    int p = strtol(av[1], &rest, 10);
+    const bool range_error = errno == ERANGE;
+    if (range_error)
+        return PORT_NUM_INVALID;
+    if (av[1] == rest)
+        return PORT_NUM_INVALID;
+    if (*rest != '\0')
+        return PORT_NUM_INVALID;
     if (p < 1024 || p > 65536)
-        return 2; // ! hmmmmmm..
+        return PORT_NUM_INVALID;
     this->_port = p;
     this->_password = av[2];
-    return 0;
+    return OK;
 }
 
 void Server::setupServer(void) {
@@ -50,25 +52,16 @@ void Server::setupServer(void) {
     struct pollfd serverfd;
     this->_serverSocketfd = socket(AF_INET, SOCK_STREAM, 0);
     if (this->_serverSocketfd == -1)
-        throw ServerExceptions("socket() error");
+        throw ServerException("socket() error");
     int on = 1;
-    if (setsockopt(this->_serverSocketfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) == -1) {
-        close(this->_serverSocketfd);
-        throw ServerExceptions("setsockopt() error");
-    }
-    //if fcntl can be used
-    if (fcntl(this->_serverSocketfd, F_SETFL, O_NONBLOCK) == -1) {
-        close(this->_serverSocketfd);
-        throw ServerExceptions("fcntl() error");
-    }
-    if (bind(this->_serverSocketfd, (struct sockaddr*)&s, sizeof(s)) == -1) {
-        close(this->_serverSocketfd);
-        throw ServerExceptions("bind() error");
-    }
-    if (listen(this->_serverSocketfd, SOMAXCONN) == -1) {
-        close(this->_serverSocketfd);
-        throw ServerExceptions("listen() error");
-    }
+    if (setsockopt(this->_serverSocketfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) == -1)
+        throw ServerException("setsockopt() error");
+    if (fcntl(this->_serverSocketfd, F_SETFL, O_NONBLOCK) == -1)
+        throw ServerException("fcntl() error");
+    if (bind(this->_serverSocketfd, (struct sockaddr*)&s, sizeof(s)) == -1)
+        throw ServerException("bind() error");
+    if (listen(this->_serverSocketfd, SOMAXCONN) == -1)
+        throw ServerException("listen() error");
     serverfd.fd = this->_serverSocketfd;
     serverfd.events = POLLIN;
     serverfd.revents = 0;
@@ -81,10 +74,9 @@ void Server::acceptClient(void) {
     socklen_t lenc = sizeof(c);
     int clientSocketfd = accept(this->_serverSocketfd, (struct sockaddr*)&c, &lenc);
     if (clientSocketfd == -1) {
-        std::cerr << "accept() error" << std::endl; // ! We can implement ClientException instead of changing to std::cerr
+        std::cerr << "accept() error" << std::endl; //implement ClientException?
         return ;
     }
-    //fcntl if could be used
     if (fcntl(clientSocketfd, F_SETFL, O_NONBLOCK) == -1) {
         std::cerr << "fcntl() error" << std::endl;
         close(clientSocketfd);
@@ -108,14 +100,13 @@ void Server::removeClient(int &i) {
 
 void Server::handleClientCommands(Client &client)
 {
-    std::stack<std::string> &mssgs = client.getReceivedMessages();
+    std::vector<std::string> &mssgs = client.getReceivedMessages();
 
     while (!mssgs.empty())
     {
-        std::cout << "Top ele: " << mssgs.top() << '\n';
         std::stringstream ss;
-        ss << mssgs.top();
-        mssgs.pop();
+        ss << mssgs.back();
+        mssgs.pop_back();
 
         std::string line;
         std::getline(ss, line, ' ');
@@ -167,7 +158,8 @@ void Server::handleClientCommands(Client &client)
     }
 }
 
-void Server::receiveClientData(int &i, Client &client) {
+void Server::receiveClientData(int &i, Client &client)
+{
     std::string &buffer = client.getRecvBuffer();
     char temp[512];
 
@@ -182,7 +174,7 @@ void Server::receiveClientData(int &i, Client &client) {
         {
             std::string singleMsg = buffer.substr(0, endMsg);
 
-            client.getReceivedMessages().push(singleMsg);
+            client.getReceivedMessages().push_back(singleMsg);
 
             std::cout << "msg: " << singleMsg << '\n';
             buffer.erase(0, endMsg + 2);
@@ -199,8 +191,26 @@ void Server::receiveClientData(int &i, Client &client) {
     }
 }
 
-void Server::messageClient(void) {
-    //to sent data to client, need to frist msg the buffer
+void Server::messageClient(int &i) {
+    ssize_t bytessend;
+    std::vector<std::string> msgtoSend = this->_clients[this->_pollfds[i].fd].getinMsg();
+    if (msgtoSend[0].empty()) { //or could do bool msgready
+        return ;
+    } 
+    //static int, probably cant empty
+    for (int i = 0; i < msgtoSend.size(); i++) {
+        while (bytessend) {
+            bytessend = send(this->_pollfds[i].fd, &msgtoSend[i], sizeof(msgtoSend[i]), 0);
+        }
+        if (bytessend == -1)
+            std::cerr << "send() error" << std::endl;
+    }
+    //have to empty all / could fix bool
+
+}
+
+void Server::finishServer(void) {
+    //cleanup all fds
 }
 
 void Server::startServer(void) {
@@ -208,9 +218,9 @@ void Server::startServer(void) {
     while (g_serverRunning) {
         int status = poll(&this->_pollfds[0], this->_pollfds.size(), -1);
         if (status == -1 && g_serverRunning == 0)
-            throw ServerExceptions("\nsignal catched");
+            throw ServerException("\nsignal catched");
         if (status == -1)
-            throw ServerExceptions("poll() error");
+            throw ServerException("poll() error");
         for (int i = 0; i < static_cast<int>(this->_pollfds.size()); i++) {
             if (this->_pollfds[i].revents == 0)
                 continue;
@@ -222,7 +232,7 @@ void Server::startServer(void) {
                 receiveClientData(i, this->_clients[this->_pollfds[i].fd]);
             }
             else if (this->_pollfds[i].revents & POLLOUT) {
-                messageClient();
+                messageClient(i);
             }
             else if (this->_pollfds[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
                 //issue with client, need to remove him, free fd, erase from all lists

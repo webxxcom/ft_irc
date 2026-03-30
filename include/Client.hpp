@@ -13,15 +13,15 @@ struct ClientState
 
 class Client {
     private:
-        ClientState     state; // state to check the state
-        int             _clientfd;
-        std::string     _nickName;
-        std::string     _username;
-        std::string     _realname; // added realname just because
-        std::string     _address;
-        std::string     _buffer;
-        std::stack<std::string>     _out; // changed vector to stack to efficiently pop the elems
-
+        ClientState                     state; // state to check the state
+        std::string                     _realname; // added realname just because
+        int                             _clientfd;
+        std::string                     _nickname;
+        std::string                     _username;
+        std::string                     _address;
+        std::string                     _buffer;
+        std::vector<std::string>        _outMsg; // changed vector to stack to efficiently pop the elems
+        std::vector<std::string>        _inMsg;
     public:
 
         // Constructors
@@ -32,7 +32,7 @@ class Client {
         ~Client();
 
         // Getters
-        std::stack<std::string>& getReceivedMessages();
+        std::vector<std::string>& getReceivedMessages();
         std::string &getRecvBuffer();
         const std::string& getNickname() const;
         const std::string& getUsername() const;
@@ -45,8 +45,8 @@ class Client {
         void setUsername(std::string const& username);
         void setRealname(std::string const& username);
         
-
-
+        std::vector<std::string> getinMsg(void);
+        void addtoBuffer(std::string msg);
 } ;
 
 #endif
