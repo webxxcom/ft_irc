@@ -92,6 +92,9 @@ void Server::acceptClient(void) {
 }
 
 void Server::disconnectClient(Client &client) {
+    // Now this method takes no `i' so we must get it from somewhere to clean the Server::_pollfds
+    // Created a map to store fd -> index to be able to get the client's index in the Server::_pollfds by client's fd
+    //  which it has inside ( Client::_fd ) 
     int const i = _fd_index_map[client.getFd()];
 
     close(this->_pollfds[i].fd);
@@ -113,6 +116,10 @@ void Server::handleClientCommands(Client &client)
     }
 }
 
+// Pass the error handling to a separate function with error_codes to send to the client
+// Exception we throw so far has the message to send to the client but the design is under the question
+//  because exception's messages for us to get not for us to send to some application.
+//  Bad practice here but i guess we've got no other choice? debatable
 void Server::serverError(int error_code, Client &client)
 {
     std::string msg;
@@ -185,7 +192,7 @@ void Server::receiveClientData(Client &client)
 
     // Getting the data from the socket
     ssize_t bytesread = recv(client.getFd(), temp, sizeof(temp), 0);
-    if (bytesread > 0)
+    if (bytesread > 0) // The condition which we want to happen most of the times should be the first to increase readability
     {
         buffer.append(temp, bytesread);
 
@@ -207,7 +214,7 @@ void Server::receiveClientData(Client &client)
             std::cout << "Client disconnected" << std::endl;
         else
             std::cerr << "recv() error" << std::endl;
-        disconnectClient(client);
+        disconnectClient(client); // Should we throw an exception?
     }
 }
 
@@ -242,6 +249,7 @@ void Server::startServer(void) {
         if (status == -1)
             throw ServerErrorException("poll() error");
 
+        // Separate responsibilites to have less function lines of code
         handlePolls();
     }
 }
@@ -250,6 +258,15 @@ void Server::handlePolls()
 {
     std::size_t i = 0;
 
+    // The `i' index is now not increased constantly as it was before with the for loop
+    //  now the `receiveClientData' member function can throw an exception ClientException meaning
+    //  that there was an error with some client data and if
+    //  that exception is thrown the user must be diconnected (see the catch block)
+
+    // Now the `messageClient' doesn't take `i' as a parameter but rather a client
+    //  and if client's fd is needed then we have Client::_fd field. Passing the index down the function calls
+    //  can lead to really bad mistakes when it's an index to iterate over an array. Better to have it ONLY inside
+    //  the loop block with no non-const exposing outside (as it was before).
     while (i < this->_pollfds.size())
     {
         // If the exception is caught the `i' index is not increased so no need to pass it
@@ -278,7 +295,7 @@ void Server::handlePolls()
         // Except for the case when client disconnects themselves : exception is not thrown obviously
         catch(const ClientException& e)
         {
-            ::send(this->_pollfds[i].fd, e.what(), strlen(e.what()), 0);
+            ::send(this->_pollfds[i].fd, e.what(), strlen(e.what()), 0); // TEST: `messageClient' didn't work
             disconnectClient(this->_clients[this->_pollfds[i].fd]);
         }
     }
