@@ -53,7 +53,8 @@ class Client {
         std::vector<std::string> getinMsg(void);
         void addtoBuffer(std::string msg);
 
-        void getMsg(std::string const& msg);
+        void receiveMsg(std::string const& msg);
+        bool isChannelOperator(Channel const& ch);
 } ;
 
 #endif

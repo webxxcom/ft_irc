@@ -1,0 +1,36 @@
+#pragma once
+
+#include "irc.hpp"
+
+class Channel {
+private:
+    std::string                     _name;
+    std::vector<std::string>        _messages;
+    std::map<std::string, Client *> _members;
+    std::map<std::string, Client *> _operators;
+    unsigned int                    _modes;
+
+public:
+    enum ChannelModes {
+        E_INVITE_ONLY = 0x1,
+        E_TOPIC_RESTRICT = 0x2,
+        E_CHANNEL_KEY = 0x4,
+        E_USER_LIMIT = 0x8
+    };
+
+    Channel(std::string const& name);
+
+    // Getters
+    std::string const& getName() const;
+    std::map<std::string, Client *> const& getMembers() const;
+    std::map<std::string, Client *> const& getOperators() const;
+    std::vector<std::string> const& getMessages() const;
+    unsigned int getModes() const;
+
+    // Modifiers
+    void setModes(unsigned int modes);
+    void addModes(unsigned int mode);
+    void removeModes(unsigned int mode);
+    void addMember(Client &user);
+    void addOperator(Client &user);
+};

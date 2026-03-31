@@ -9,6 +9,10 @@ void Server::setupCommands()
     _command_map["NICK"] = &Server::handleNick;
     _command_map["USER"] = &Server::handleUser;
     _command_map["CAP"] = &Server::handleCap;
+    _command_map["JOIN"] = &Server::handleJoin;
+    _command_map["INVITE"] = &Server::handleInvite;
+    _command_map["TOPIC"] = &Server::handleTopic;
+    _command_map["MODE"] = &Server::handleMode;
 }
 
 int Server::parseArgs(int ac, char *av[])
@@ -127,7 +131,7 @@ void Server::handleClientCommands(Client &client)
         if (it != _command_map.end())
             (this->*(it->second))(client, line);
         else
-            client.getMsg(":server 421 " + client.getIrcNickname() + " " + command + ":unknown command\r\n");
+            client.receiveMsg(":server 421 " + client.getIrcNickname() + " " + command + ":unknown command\r\n");
     }
 }
 
@@ -135,7 +139,7 @@ void Server::handleClientCommands(Client &client)
 // Exception we throw so far has the message to send to the client but the design is under the question
 //  because exception's messages for us to get not for us to send to some application.
 //  Bad practice here but i guess we've got no other choice? debatable
-void Server::serverError(ServerErrorCodes error_code, Client &client)
+void Server::terminateClient(ServerErrorCodes error_code, Client &client)
 {
     std::string msg;
     switch (error_code)
@@ -175,11 +179,10 @@ void Server::receiveClientData(Client &client)
             buffer.erase(0, endMsg + 2);
         }
         handleClientCommands(client);
-        // messageClient(client);
 
         // Client expects message `001' about successfull connection
         if (client.isRegistered())
-            client.getMsg(":server 001 " + client.getNickname() + " :Welcome to the IRC server");
+            client.receiveMsg(":server 001 " + client.getNickname() + " :Welcome to the IRC server");
     }
     else
     {
@@ -296,7 +299,7 @@ void Server::handlePass(Client& client, std::stringstream& command)
     std::getline(command, word, ' ');
     if (word != _password)
         // The passwords do not match -- send the message it's incorrect
-        serverError(ERR_PASSWDMISMATCH, client);
+        terminateClient(ERR_PASSWDMISMATCH, client);
     else
         client.setPassword(word); // set password if correct
 }
@@ -333,7 +336,156 @@ void Server::handleCap(Client& client, std::stringstream& command)
     
     std::getline(command, word, ' ');
     if (word == "LS") // 
-        client.getMsg(":server CAP * LS :\r\n"); // No capabilities
+        client.receiveMsg(":server CAP * LS :\r\n"); // No capabilities
     else // Do not support any other than LS
-        client.getMsg(":server 421 " + client.getIrcNickname() + " " + word + ":unknown command for CAP\r\n");
+        client.receiveMsg(":server 421 " + client.getIrcNickname() + " " + word + ":unknown command for CAP\r\n");
+}
+
+void Server::handleJoin(Client &client, std::stringstream &command)
+{
+    std::string word;
+    std::getline(command, word, ' ');
+
+    // ! The keys to channels are not yet implemented
+    std::stringstream channelList;
+    channelList << word;
+    while (1)
+    {
+        std::getline(channelList, word, ',');
+        if (channelList.eof())
+            break ;
+        if (word[0] != '#')
+            continue ;
+
+        std::map<std::string, Channel>::iterator it = _channels.find(word); 
+        if (it == _channels.end()) // channel with that name was not found - create it
+        {
+            Channel ch(word);
+            ch.addOperator(client); // The creator is automatically an operator
+            _channels.insert(std::pair<std::string, Channel>(word, ch));
+        }
+        _channels.at(word).addMember(client);
+    }
+}
+
+void Server::handleKick(Client &client, std::stringstream &command)
+{
+    std::string channel, who, message;
+    std::getline(command, channel, ' ');
+    std::getline(command, who, ' ');
+    std::getline(command, message, ' ');
+
+    if (channel[0] != '#')
+        return ;
+    std::map<std::string, Channel>::iterator it = _channels.find(channel); 
+    if (it != _channels.end())
+    {
+        Channel &ch = it->second;
+
+        // are YOU a channel's operator first of all??
+        if (!client.isChannelOperator(ch))
+            return ;
+
+        std::map<std::string, Client *>::const_iterator it = ch.getMembers().find(who);
+        if (it != ch.getMembers().end())
+            it->second->receiveMsg("ERROR :" + message);
+    }
+    else
+        client.receiveMsg(":server :channel with that name does not exist\r\n");
+}
+
+void Server::handleInvite(Client &client, std::stringstream &command)
+{
+    std::string nickname, channel;
+
+    std::getline(command, nickname, ' ');
+    std::getline(command, channel, ' ');
+
+    if (channel[0] != '#')
+        return ;
+    std::map<std::string, Channel>::iterator itCh = _channels.find(channel);
+    if (itCh != _channels.end())
+    {
+        Channel &ch = itCh->second;
+
+        // if channel is invite-only only operators can invite
+        if (ch.getModes() & Channel::E_INVITE_ONLY)
+        {
+            std::map<std::string, Client *>::const_iterator it = ch.getOperators().find(client.getNickname());
+            if (it == ch.getOperators().end()) // Client is not an operator
+            {
+                client.receiveMsg("ERROR :you are not channel's operator\r\n");
+                return ;
+            }
+        }
+        
+        // Invite client with the following name
+        for (std::map<int, Client>::iterator it = _clients.begin(); it != _clients.end(); ++it)
+        {
+            // Send the invitation in format: :<inviter> INVITE <invitee> :<channel>
+            if (it->second.getNickname() == nickname)
+                it->second.receiveMsg(":" + client.getNickname() + " INVITE " + nickname + " :" + channel + "\r\n");
+        }
+    }
+}
+
+void Server::handleTopic(Client &client, std::stringstream &command)
+{
+
+}
+
+void Server::handleMode(Client &client, std::stringstream &command)
+{
+    std::string first, flags;
+
+    std::getline(command, first, ' ');
+    std::getline(command, flags, ' ');
+
+    // Setting modes for a channel
+    if (first[0] == '#')
+    {
+        std::map<std::string, Channel>::iterator it = _channels.find(first);
+        if (it == _channels.end())
+            return ; // No such channel :(
+
+        Channel &ch = it->second;
+        if (!client.isChannelOperator(ch))
+            return ;
+            
+        if (!flags.empty())
+        {
+            unsigned int modes = 0;
+            for (size_t i = 1; i < flags.size(); ++i)
+            {
+                switch (flags[i])
+                {
+                case 'i':
+                    modes |= modes & Channel::E_INVITE_ONLY;
+                    break;
+                case 't':
+                    modes |= modes & Channel::E_TOPIC_RESTRICT;
+                    break;
+                case 'k':
+                    modes |= modes & Channel::E_CHANNEL_KEY;
+                    break;
+                case 'l':
+                    modes |= modes & Channel::E_USER_LIMIT;
+                    break;
+                }
+            }
+            if (flags[0] == '+')
+                ch.addModes(modes);
+            else
+                ch.removeModes(modes);
+        }
+        else
+        {
+            // Wanna know the current channel's modes
+            // ? Do we want to implement?
+        }
+    }
+    else // no '#'? then it's a user hahaaaaa
+    {
+
+    }
 }

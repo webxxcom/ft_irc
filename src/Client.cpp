@@ -2,8 +2,8 @@
 #include "Client.hpp"
 
 ClientState::ClientState() : pass_ok(false), has_nick(false), has_user(false) { }
-Client::Client() : _state() {}
 
+Client::Client() : _state() {}
 Client::Client(int fd) : _state(), _fd(fd)
 {
     std::cout << "Client connected" << std::endl;
@@ -30,13 +30,13 @@ Client::~Client() {
     // std::cout << "Client disconnected" << std::endl;
 }
 
-std::vector<std::string> &Client::getReceivedMessages() { return this->_outMsg; }
-std::string &Client::getRecvBuffer() { return this->_buffer; }
-const std::string &Client::getNickname() const { return _nickname; }
-std::string Client::getIrcNickname() const { return _state.has_nick ? _nickname : "*"; }
-const std::string &Client::getUsername() const { return _username; }
-const std::string &Client::getRealname() const { return _realname; }
-int Client::getFd() const { return _fd; }
+std::vector<std::string>    &Client::getReceivedMessages()      { return this->_outMsg; }
+std::string                 &Client::getRecvBuffer()            { return this->_buffer; }
+const std::string           &Client::getNickname()      const   { return _nickname; }
+std::string                 Client::getIrcNickname()    const   { return _state.has_nick ? _nickname : "*"; }
+const std::string           &Client::getUsername()      const   { return _username; }
+const std::string           &Client::getRealname()      const   { return _realname; }
+int                         Client::getFd()             const   { return _fd; }
 
 bool Client::isRegistered() const
 {
@@ -87,8 +87,12 @@ void Client::addtoBuffer(std::string msg) {
     }
 }
 
-void Client::getMsg(std::string const& msg)
+void Client::receiveMsg(std::string const& msg)
 {
     _inMsg.push_back(msg);
 }
 
+bool Client::isChannelOperator(Channel const &ch)
+{
+    return ch.getOperators().find(_nickname) != ch.getOperators().end();
+}
