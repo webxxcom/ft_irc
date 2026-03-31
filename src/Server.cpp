@@ -3,28 +3,16 @@
 #include <cstring>
 #include <sstream>
 
-Server::Server(int ac, char *av[]) : _serverSocketfd(-1) {
-    int status = this->parseArgs(ac, av);
-    if (status == ARGS_NUM_INVALID)
-        throw ServerErrorException("Arguments invalid\nRun with: ./irc <port> <password>");
-    else if (status == PORT_NUM_INVALID)
-        throw ServerErrorException("Port number is invalid");
-    std::cout << "Server created" << std::endl;
+void Server::setupCommands()
+{
+    _command_map["PASS"] = &Server::handlePass;
+    _command_map["NICK"] = &Server::handleNick;
+    _command_map["USER"] = &Server::handleUser;
+    _command_map["CAP"] = &Server::handleCap;
 }
 
-//
-//todo
-Server::Server(const Server &orig) {
-    (void)orig;
-}
-
-Server::~Server() {
-    if (this->_serverSocketfd != -1)
-        close(this->_serverSocketfd);
-}
-//
-
-int Server::parseArgs(int ac, char *av[]) {
+int Server::parseArgs(int ac, char *av[])
+{
     if (ac != 3)
         return ARGS_NUM_INVALID;
     char *rest;
@@ -41,6 +29,21 @@ int Server::parseArgs(int ac, char *av[]) {
     this->_port = p;
     this->_password = av[2];
     return OK;
+}
+
+Server::Server(int ac, char *av[]) : _serverSocketfd(-1) {
+    int status = this->parseArgs(ac, av);
+    if (status == ARGS_NUM_INVALID)
+        throw ServerErrorException("Arguments invalid\nRun with: ./irc <port> <password>");
+    else if (status == PORT_NUM_INVALID)
+        throw ServerErrorException("Port number is invalid");
+    std::cout << "Server created" << std::endl;
+    setupCommands();
+}
+
+Server::~Server() {
+    if (this->_serverSocketfd != -1)
+        close(this->_serverSocketfd);
 }
 
 void Server::setupServer(void) {
@@ -97,7 +100,9 @@ void Server::disconnectClient(Client &client) {
     //  which it has inside ( Client::_fd ) 
     int const i = _fd_index_map[client.getFd()];
 
+    shutdown(client.getFd(), SHUT_WR);
     close(this->_pollfds[i].fd);
+    _fd_index_map.erase(this->_pollfds[i].fd);
     this->_clients.erase(this->_pollfds[i].fd);
     this->_pollfds.erase(this->_pollfds.begin() + i);
 }
@@ -108,11 +113,21 @@ void Server::handleClientCommands(Client &client)
 
     while (!mssgs.empty())
     {
+        // Get the whole line
         std::stringstream line;
         line << mssgs.back();
         mssgs.pop_back();
 
-        handleClientCommand(client, line);
+        // Extract single command
+        std::string command;
+        std::getline(line, command, ' ');
+
+        // Find the command in the map
+        std::map<std::string, CommandHandler>::iterator it = _command_map.find(command);
+        if (it != _command_map.end())
+            (this->*(it->second))(client, line);
+        else
+            client.getMsg(":server 421 " + client.getIrcNickname() + " " + command + ":unknown command\r\n");
     }
 }
 
@@ -120,69 +135,23 @@ void Server::handleClientCommands(Client &client)
 // Exception we throw so far has the message to send to the client but the design is under the question
 //  because exception's messages for us to get not for us to send to some application.
 //  Bad practice here but i guess we've got no other choice? debatable
-void Server::serverError(int error_code, Client &client)
+void Server::serverError(ServerErrorCodes error_code, Client &client)
 {
     std::string msg;
-    if (error_code == BAD_SERVER_PASSWORD)
+    switch (error_code)
     {
-        msg = ":server 464 " +
-            (client.hasNickname() ? client.getNickname() : "*")
-            + " :Password incorrect";
+        case ERR_PASSWDMISMATCH:
+            msg = ":server 464 " + client.getIrcNickname() + " :Password incorrect";
+            break ;
+        case ERR_ALREADYREGISTERED:
+            msg = ":server 462 " + client.getIrcNickname() + " :already registered";
+            break ;
+        case ERR_NOTREGISTERED:
+            msg = ":server 451 " + client.getIrcNickname() + " :complete registration first";
+            break ;
     }
     msg += "\r\n";
     throw ClientException(msg);
-}
-
-void Server::handleClientCommand(Client &client, std::stringstream &command)
-{
-    std::string word;
-    std::getline(command, word, ' ');
-
-    if (word == "PASS")
-    {
-        // Client sent the password they used to connect to the server
-        std::getline(command, word, ' ');
-        if (word != _password)
-            // The passwords do not match -- send the message it's incorrect
-            serverError(464, client);
-        else
-            client.setPassword(word); // set password if correct
-    }
-    else if (word == "NICK")
-    {
-        // Client sent their nickname
-        std::getline(command, word, ' ');
-        client.setNickname(word);
-    }
-    else if (word == "CAP")
-    {
-        // Client sent a request to get the server's capabilities
-
-        // CAP LS 302
-
-        // some capabilities logic
-        // need to answer to the server?
-
-        // Answer like CAP * LS :<capabilities>
-    }
-    else if (word == "USER")
-    {
-        // Client sent their username, mode. `*' and real name
-
-        // Username
-        std::getline(command, word, ' ');
-        client.setUsername(word);
-
-        // Mode
-        std::getline(command, word, ' ');
-
-        // Asterix
-        std::getline(command, word, ' ');
-
-        // Real name
-        std::getline(command, word, ' ');
-        client.setRealname(word);
-    }
 }
 
 void Server::receiveClientData(Client &client)
@@ -190,9 +159,8 @@ void Server::receiveClientData(Client &client)
     std::string &buffer = client.getRecvBuffer();
     char temp[512];
 
-    // Getting the data from the socket
     ssize_t bytesread = recv(client.getFd(), temp, sizeof(temp), 0);
-    if (bytesread > 0) // The condition which we want to happen most of the times should be the first to increase readability
+    if (bytesread > 0)
     {
         buffer.append(temp, bytesread);
 
@@ -207,6 +175,11 @@ void Server::receiveClientData(Client &client)
             buffer.erase(0, endMsg + 2);
         }
         handleClientCommands(client);
+        // messageClient(client);
+
+        // Client expects message `001' about successfull connection
+        if (client.isRegistered())
+            client.getMsg(":server 001 " + client.getNickname() + " :Welcome to the IRC server");
     }
     else
     {
@@ -225,11 +198,11 @@ void Server::messageClient(Client &client) {
         return ;
     } 
     //static int, probably cant empty
-    for (int i = 0; i < msgtoSend.size(); i++) {
+    for (size_t i = 0; i < msgtoSend.size(); i++) {
         do { // replaced with do while because `bytessend' can't be initialized
             bytessend = send(this->_pollfds[i].fd, &msgtoSend[i], sizeof(msgtoSend[i]), 0); // ! std::string::size()?
         } while (bytessend);
-        if (bytessend == -1);
+        if (bytessend == -1)
             std::cerr << "send() error" << std::endl;
     }
     //have to empty all / could fix bool
@@ -295,9 +268,72 @@ void Server::handlePolls()
         // Except for the case when client disconnects themselves : exception is not thrown obviously
         catch(const ClientException& e)
         {
-            ::send(this->_pollfds[i].fd, e.what(), strlen(e.what()), 0); // TEST: `messageClient' didn't work
+            ssize_t total = 0, len = strlen(e.what());
+            
+            while (total < len)
+            {
+                std::cout << "Sending " << e.what() + total << std::endl;
+                // TEST: `messageClient' didn't work
+                ssize_t n = ::send(this->_pollfds[i].fd, e.what() + total, strlen(e.what()) - total, 0);
+                if (n <= 0)
+                    break ;
+                total += n;
+            }
+            //to avoid `irc: sending data to server: error 32 Broken pipe'
+            // in the client we may receive all the messages from recv? 
             disconnectClient(this->_clients[this->_pollfds[i].fd]);
         }
     }
 }
 
+//////////////////////// COMMANDS /////////////////////////////
+
+void Server::handlePass(Client& client, std::stringstream& command)
+{
+    std::string word;
+
+    // Client sent the password they used to connect to the server
+    std::getline(command, word, ' ');
+    if (word != _password)
+        // The passwords do not match -- send the message it's incorrect
+        serverError(ERR_PASSWDMISMATCH, client);
+    else
+        client.setPassword(word); // set password if correct
+}
+
+void Server::handleUser(Client& client, std::stringstream& command)
+{
+    std::string word;
+    
+    // Username
+    std::getline(command, word, ' ');
+    client.setUsername(word);
+
+    // Mode, Asterix
+    std::getline(command, word, ' ');
+    std::getline(command, word, ' ');
+
+    // Real name
+    std::getline(command, word, ' ');
+    client.setRealname(word);
+}
+
+void Server::handleNick(Client& client, std::stringstream& command)
+{
+    std::string word;
+   
+    std::getline(command, word, ' ');
+    std::cout << "NICKNAME: " << word << std::endl;
+    client.setNickname(word);
+}
+
+void Server::handleCap(Client& client, std::stringstream& command)
+{
+    std::string word;
+    
+    std::getline(command, word, ' ');
+    if (word == "LS") // 
+        client.getMsg(":server CAP * LS :\r\n"); // No capabilities
+    else // Do not support any other than LS
+        client.getMsg(":server 421 " + client.getIrcNickname() + " " + word + ":unknown command for CAP\r\n");
+}

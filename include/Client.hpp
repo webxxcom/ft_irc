@@ -9,6 +9,8 @@ struct ClientState
     bool pass_ok;
     bool has_nick;
     bool has_user;
+
+    ClientState();
 };
 
 class Client {
@@ -35,6 +37,7 @@ class Client {
         std::vector<std::string>& getReceivedMessages();
         std::string &getRecvBuffer();
         const std::string& getNickname() const;
+        std::string getIrcNickname() const;
         const std::string& getUsername() const;
         const std::string& getRealname() const;
         int getFd() const;

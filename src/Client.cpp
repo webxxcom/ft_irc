@@ -1,16 +1,15 @@
 #include "../include/irc.hpp"
 #include "Client.hpp"
 
-Client::Client() {}
+ClientState::ClientState() : pass_ok(false), has_nick(false), has_user(false) { }
+Client::Client() : _state() {}
 
-Client::Client(int fd) : _fd(fd) {
+Client::Client(int fd) : _state(), _fd(fd)
+{
     std::cout << "Client connected" << std::endl;
 }
 
-Client::Client(const Client &other)
-{
-    *this = other;
-}
+Client::Client(const Client &other) { *this = other; }
 
 Client &Client::operator=(const Client &other)
 {
@@ -34,6 +33,7 @@ Client::~Client() {
 std::vector<std::string> &Client::getReceivedMessages() { return this->_outMsg; }
 std::string &Client::getRecvBuffer() { return this->_buffer; }
 const std::string &Client::getNickname() const { return _nickname; }
+std::string Client::getIrcNickname() const { return _state.has_nick ? _nickname : "*"; }
 const std::string &Client::getUsername() const { return _username; }
 const std::string &Client::getRealname() const { return _realname; }
 int Client::getFd() const { return _fd; }
@@ -91,3 +91,4 @@ void Client::getMsg(std::string const& msg)
 {
     _inMsg.push_back(msg);
 }
+
