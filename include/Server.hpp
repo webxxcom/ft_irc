@@ -2,6 +2,7 @@
 #define SERVER_HPP
 
 #include "irc.hpp"
+#include "Channel.hpp"
 
 enum ServerErrorCodes
 {

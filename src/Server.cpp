@@ -99,12 +99,9 @@ void Server::acceptClient(void) {
 }
 
 void Server::disconnectClient(Client &client) {
-    // Now this method takes no `i' so we must get it from somewhere to clean the Server::_pollfds
-    // Created a map to store fd -> index to be able to get the client's index in the Server::_pollfds by client's fd
-    //  which it has inside ( Client::_fd ) 
     int const i = _fd_index_map[client.getFd()];
 
-    shutdown(client.getFd(), SHUT_WR);
+    shutdown(client.getFd(), SHUT_WR); 
     close(this->_pollfds[i].fd);
     _fd_index_map.erase(this->_pollfds[i].fd);
     this->_clients.erase(this->_pollfds[i].fd);
@@ -158,6 +155,9 @@ void Server::terminateClient(ServerErrorCodes error_code, Client &client)
     throw ClientException(msg);
 }
 
+// !! talk wit roman about the references, if better change??
+// after renaming receivedmsg to inmsg >> better .getreceivedmsg to .getinmsg, makes more sense
+
 void Server::receiveClientData(Client &client)
 {
     std::string &buffer = client.getRecvBuffer();
@@ -195,21 +195,30 @@ void Server::receiveClientData(Client &client)
 }
 
 void Server::messageClient(Client &client) {
-    ssize_t bytessend;
     std::vector<std::string> msgtoSend = client.getinMsg();
-    if (msgtoSend[0].empty()) { //or could do bool msgready
+    if (msgtoSend[0].empty())
         return ;
-    } 
-    //static int, probably cant empty
+    std::string longMsg = "";
     for (size_t i = 0; i < msgtoSend.size(); i++) {
-        do { // replaced with do while because `bytessend' can't be initialized
-            bytessend = send(this->_pollfds[i].fd, &msgtoSend[i], sizeof(msgtoSend[i]), 0); // ! std::string::size()?
-        } while (bytessend);
-        if (bytessend == -1)
-            std::cerr << "send() error" << std::endl;
+        longMsg += msgtoSend[i];
     }
-    //have to empty all / could fix bool
-
+    client.clearinMsg();
+    ssize_t bytessend = send(client.getFd(), longMsg.c_str(), longMsg.length(), 0);
+    if (bytessend > 0) {
+        if (static_cast<size_t>(bytessend) < longMsg.length()) {
+            std::string remainder = longMsg.substr(bytessend);
+            client.addinMsg(remainder);
+        }
+    }
+    else if (bytessend == -1) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            client.addinMsg(longMsg);
+        }
+        else {
+            std::cerr << "send() error" << std::endl;
+            disconnectClient(client);
+        }  
+    }
 }
 
 void Server::finishServer(void) {
@@ -224,8 +233,6 @@ void Server::startServer(void) {
             throw ServerErrorException("\nsignal catched");
         if (status == -1)
             throw ServerErrorException("poll() error");
-
-        // Separate responsibilites to have less function lines of code
         handlePolls();
     }
 }
@@ -234,19 +241,8 @@ void Server::handlePolls()
 {
     std::size_t i = 0;
 
-    // The `i' index is now not increased constantly as it was before with the for loop
-    //  now the `receiveClientData' member function can throw an exception ClientException meaning
-    //  that there was an error with some client data and if
-    //  that exception is thrown the user must be diconnected (see the catch block)
-
-    // Now the `messageClient' doesn't take `i' as a parameter but rather a client
-    //  and if client's fd is needed then we have Client::_fd field. Passing the index down the function calls
-    //  can lead to really bad mistakes when it's an index to iterate over an array. Better to have it ONLY inside
-    //  the loop block with no non-const exposing outside (as it was before).
     while (i < this->_pollfds.size())
     {
-        // If the exception is caught the `i' index is not increased so no need to pass it
-        //  to all the function calls and decrement after disconnecting the client
         try
         {
             if (this->_pollfds[i].revents != 0)
@@ -267,8 +263,6 @@ void Server::handlePolls()
             }
             ++i;
         }
-        // For now let us assume that if client disconnects due to an error we always have to send the respond
-        // Except for the case when client disconnects themselves : exception is not thrown obviously
         catch(const ClientException& e)
         {
             ssize_t total = 0, len = strlen(e.what());
@@ -282,8 +276,9 @@ void Server::handlePolls()
                     break ;
                 total += n;
             }
-            //to avoid `irc: sending data to server: error 32 Broken pipe'
-            // in the client we may receive all the messages from recv? 
+            //A>by the previously commented logic, isnt it risky to use this->_pollfds[i].fd? 
+            //why change it everywhere else and leave here??
+
             disconnectClient(this->_clients[this->_pollfds[i].fd]);
         }
     }

@@ -70,7 +70,7 @@ void Client::setNickname(std::string const& nickname)
     _state.has_nick = true;
 }
 
-std::vector<std::string> Client::getinMsg(void) {
+std::vector<std::string> Client::getinMsg(void) const{
     return this->_inMsg;
 }
 
@@ -95,4 +95,12 @@ void Client::receiveMsg(std::string const& msg)
 bool Client::isChannelOperator(Channel const &ch)
 {
     return ch.getOperators().find(_nickname) != ch.getOperators().end();
+}
+
+void Client::clearinMsg(void) {
+    _inMsg.clear();
+}
+
+void Client::addinMsg(std::string remainder) {
+    _inMsg.push_back(remainder);
 }

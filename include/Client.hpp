@@ -4,6 +4,7 @@
 #include "irc.hpp"
 #include <stack>
 
+
 struct ClientState
 {
     bool pass_ok;
@@ -12,6 +13,8 @@ struct ClientState
 
     ClientState();
 };
+
+class Channel;
 
 class Client {
     private:
@@ -50,8 +53,10 @@ class Client {
         void setUsername(std::string const& username);
         void setRealname(std::string const& username);
         
-        std::vector<std::string> getinMsg(void);
-        void addtoBuffer(std::string msg);
+        std::vector<std::string> getinMsg(void) const;
+        void clearinMsg();
+        void addinMsg(std::string remainder);
+        void addtoBuffer(std::string msg); //needed after Roman change??
 
         void receiveMsg(std::string const& msg);
         bool isChannelOperator(Channel const& ch);

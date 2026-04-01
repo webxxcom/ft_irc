@@ -2,6 +2,8 @@
 
 #include "irc.hpp"
 
+class Client;
+
 class Channel {
 private:
     std::string                     _name;
