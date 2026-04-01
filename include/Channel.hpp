@@ -19,7 +19,7 @@ public:
     };
 
     Channel(std::string const& name);
-    Channel(Client &creator, std::string const& name);
+    Channel(Client *creator, std::string const& name);
 
     // Getters
     std::string const& getName() const;
@@ -29,12 +29,15 @@ public:
     unsigned int getModes() const;
 
     // ??
-    std::pair<Client *, bool> hasMember(std::string)
+    std::pair<Client *, bool>   hasMember(std::string const& nick)    const;
+    bool                        hasMember(Client *cl)                 const;
+    std::pair<Client *, bool>   hasOperator(std::string const& nick)  const;
+    bool                        hasOperator(Client *cl)               const;
 
     // Modifiers
     void setModes(unsigned int modes);
     void addModes(unsigned int mode);
     void removeModes(unsigned int mode);
-    void addMember(Client &user);
-    void addOperator(Client &user);
+    void addMember(Client *user);
+    void addOperator(Client *user);
 };

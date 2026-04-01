@@ -17,11 +17,13 @@
 #include <csignal>
 #include <string.h>
 #include <cerrno>
+#include <algorithm>
 
+#include "AdvancedMap.hpp"
 #include "Client.hpp"
+#include "Channel.hpp"
 #include "Server.hpp"
 #include "Exceptions.hpp"
-#include "Channel.hpp"
 
 extern volatile sig_atomic_t g_serverRunning;
 

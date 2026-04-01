@@ -30,6 +30,8 @@ Client::~Client() {
     // std::cout << "Client disconnected" << std::endl;
 }
 
+bool Client::operator==(Client const &other) const { return _fd == other._fd; }
+
 std::vector<std::string>    &Client::getReceivedMessages()      { return this->_outMsg; }
 std::string                 &Client::getRecvBuffer()            { return this->_buffer; }
 const std::string           &Client::getNickname()      const   { return _nickname; }
@@ -37,6 +39,7 @@ std::string                 Client::getIrcNickname()    const   { return _state.
 const std::string           &Client::getUsername()      const   { return _username; }
 const std::string           &Client::getRealname()      const   { return _realname; }
 int                         Client::getFd()             const   { return _fd; }
+std::string                 Client::getFullUserPrefix() const   { return _nickname + "!" + _username + "@" + "host"; }
 
 bool Client::isRegistered() const
 {
@@ -90,14 +93,4 @@ void Client::addtoBuffer(std::string msg) {
 void Client::receiveMsg(std::string const& msg)
 {
     _inMsg.push_back(msg);
-}
-
-bool Client::isOperatorOf(Channel const &ch)
-{
-    return ch.getOperators().find(_nickname) != ch.getOperators().end();
-}
-
-bool Client::isMemberOf(Channel const &ch)
-{
-    return ch.getMembers().find(_nickname) != ch.getMembers().end();
 }

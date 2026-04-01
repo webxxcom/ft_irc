@@ -27,8 +27,8 @@ private:
 public:
 
     struct NickEquals {
-        NickEquals(std::string &const target) {_target = target};
-        bool operator()(Client &cl) {return cl.getNickname() == _target; }
+        NickEquals(std::string const& target) {_target = target; };
+        bool operator()(Client const* cl) {return cl->getNickname() == _target; }
     private:
         std::string _target;
     };
@@ -40,6 +40,8 @@ public:
     Client&operator=(const Client &orig);
     ~Client();
 
+    bool operator==(Client const& other) const;
+
     // Getters
     std::vector<std::string>& getReceivedMessages();
     std::string &getRecvBuffer();
@@ -48,6 +50,7 @@ public:
     const std::string& getUsername() const;
     const std::string& getRealname() const;
     int getFd() const;
+    std::string getFullUserPrefix() const;
     bool isRegistered() const;
     bool hasNickname() const;
 
@@ -61,8 +64,6 @@ public:
     void addtoBuffer(std::string msg);
 
     void receiveMsg(std::string const& msg);
-    bool isOperatorOf(Channel const& ch);
-    bool isMemberOf(Channel const& ch);
 } ;
 
 #endif

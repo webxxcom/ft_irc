@@ -49,6 +49,11 @@ Server::Server(int ac, char *av[]) : _serverSocketfd(-1) {
 Server::~Server() {
     if (this->_serverSocketfd != -1)
         close(this->_serverSocketfd);
+    
+    for(size_t i = 0; i < _clients.size(); ++i)
+        delete _clients[i];
+    for(size_t i = 0; i < _channels.size(); ++i)
+        delete _channels[i];
 }
 
 void Server::setupServer(void) {
@@ -96,26 +101,34 @@ void Server::acceptClient(void) {
     clientfd.revents = 0;
     this->_pollfds.push_back(clientfd);
     _fd_index_map[clientfd.fd] = _pollfds.size() - 1;
-    _clients.insert(std::pair<int, Client>(clientfd.fd, Client(clientfd.fd)));
+
+    Client *cl = new Client(clientfd.fd);
+    _clients.push_back(cl);
+    _clientsByFd.insert(std::pair<int, Client *>(cl->getFd(), cl));
+    _clientsByName.insert(std::pair<std::string, Client *>(cl->getNickname(), cl));
 }
 
 // before disconnecting the client we want to send all of the messages to them
-void Server::disconnectClient(Client &client) {
+void Server::disconnectClient(Client *client) {
     // Now this method takes no `i' so we must get it from somewhere to clean the Server::_pollfds
     // Created a map to store fd -> index to be able to get the client's index in the Server::_pollfds by client's fd
     //  which it has inside ( Client::_fd ) 
-    int const i = _fd_index_map[client.getFd()];
+    int const i = _fd_index_map[client->getFd()];
 
-    shutdown(client.getFd(), SHUT_WR);
+    shutdown(client->getFd(), SHUT_WR);
     close(this->_pollfds[i].fd);
     _fd_index_map.erase(this->_pollfds[i].fd);
-    this->_clients.erase(this->_pollfds[i].fd);
+
+    _clientsByFd.erase(client->getFd());
+    _clientsByName.erase(client->getNickname());
+    _clients.erase(std::find(_clients.begin(), _clients.end(), client));
+
     this->_pollfds.erase(this->_pollfds.begin() + i);
 }
 
-void Server::handleClientCommands(Client &client)
+void Server::handleClientCommands(Client *client)
 {
-    std::vector<std::string> &mssgs = client.getReceivedMessages();
+    std::vector<std::string> &mssgs = client->getReceivedMessages();
 
     while (!mssgs.empty())
     {
@@ -133,35 +146,65 @@ void Server::handleClientCommands(Client &client)
         if (it != _command_map.end())
             (this->*(it->second))(client, line);
         else
-            client.receiveMsg(":server 421 " + client.getIrcNickname() + " " + command + ":unknown command\r\n");
+            notifyClient(client, ERR_UNKNOWN_COMMAND, command);
     }
 }
 
 // Errors are divided into two types: the ones which disconnect the client 
-//  and the ones which just send them the error occured.
-void Server::errorClient(ServerErrorCodes error_code, Client &client)
+//  and the ones which just send them the error occured to the client.
+void Server::notifyClient(Client *target, ServerNotifyCodes error_code, std::string const& extra)
 {
-    std::string msg;
+    std::stringstream msg;
+    msg << ":server " << (int)error_code << " " + target->getIrcNickname() + " ";
     switch (error_code)
     {
         case ERR_PASSWDMISMATCH:
-            throw ClientException(":server 464 " + client.getIrcNickname() + " :Password incorrect\r\n");
-            break ;
+            msg << ":Password incorrect\r\n";
+            throw ClientException(msg.str());
         case ERR_ALREADYREGISTERED:
-            throw ClientException(":server 462 " + client.getIrcNickname() + " :already registered\r\n");
-            break ;
+            msg << ":already registered\r\n";
+            throw ClientException(msg.str());
         case ERR_NOTREGISTERED:
-            throw ClientException(":server 451 " + client.getIrcNickname() + " :complete registration first\r\n");
+            msg << ":complete registration first\r\n";
+            throw ClientException(msg.str());
+        case ERR_UNKNOWN_COMMAND:
+            msg << extra << " :Unknown command";
             break ;
+        case ERR_NOSUCHNICK:
+            msg << extra << " :No such nick/channel";
+            break;
+        case ERR_NOSUCHCHANNEL:
+            msg << extra << " :No such channel";
+            break;
+        case ERR_NOTONCHANNEL:
+            msg << extra << " :You're not on that channel";
+            break;
+        case ERR_NOPRIVILEGES:
+            msg << extra << " :Permission Denied- You're not an IRC operator";
+            break;
+        case ERR_USERNOTINCHANNEL:
+            msg << extra << " :They aren't on that channel";
+            break;
+        case ERR_CHANOPRIVSNEEDED:
+            msg << extra << " :You're not channel operator";
+            break;
+        case RPL_INVITING:
+            msg << extra;
+            break;
+        default:
+            msg << ":Unknown error";
+            break;
     }
+    msg << "\r\n";
+    target->receiveMsg(msg.str());
 }
 
-void Server::receiveClientData(Client &client)
+void Server::receiveClientData(Client *client)
 {
-    std::string &buffer = client.getRecvBuffer();
+    std::string &buffer = client->getRecvBuffer();
     char temp[512];
 
-    ssize_t bytesread = recv(client.getFd(), temp, sizeof(temp), 0);
+    ssize_t bytesread = recv(client->getFd(), temp, sizeof(temp), 0);
     if (bytesread > 0)
     {
         buffer.append(temp, bytesread);
@@ -171,7 +214,7 @@ void Server::receiveClientData(Client &client)
         {
             std::string singleMsg = buffer.substr(0, endMsg);
 
-            client.getReceivedMessages().push_back(singleMsg);
+            client->getReceivedMessages().push_back(singleMsg);
 
             std::cout << "msg: " << singleMsg << '\n';
             buffer.erase(0, endMsg + 2);
@@ -179,8 +222,8 @@ void Server::receiveClientData(Client &client)
         handleClientCommands(client);
 
         // Client expects message `001' about successfull connection
-        if (client.isRegistered())
-            client.receiveMsg(":server 001 " + client.getNickname() + " :Welcome to the IRC server");
+        if (client->isRegistered())
+            client->receiveMsg(":server 001 " + client->getNickname() + " :Welcome to the IRC server");
     }
     else
     {
@@ -254,10 +297,10 @@ void Server::handlePolls()
                     acceptClient();
                 }
                 else if (this->_pollfds[i].revents & POLLIN) {
-                    receiveClientData(this->_clients[this->_pollfds[i].fd]);
+                    receiveClientData(_clientsByFd.at(_pollfds[i].fd));
                 }
                 else if (this->_pollfds[i].revents & POLLOUT) {
-                    messageClient(this->_clients.at(this->_pollfds[i].fd));
+                    messageClient(*_clientsByFd.at(_pollfds[i].fd));
                 }
                 else if (this->_pollfds[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
                     //issue with client, need to remove him, free fd, erase from all lists
@@ -269,21 +312,23 @@ void Server::handlePolls()
         {
             //to avoid `irc: sending data to server: error 32 Broken pipe'
             // in the client we may receive all the messages from recv? 
-            disconnectClient(this->_clients[this->_pollfds[i].fd]);
+            disconnectClient(_clientsByFd[_pollfds[i].fd]);
         }
     }
 }
 
-Channel &Server::createChannel(Client &creator, std::string const &name)
+Channel *Server::createChannel(Client *creator, std::string const &name)
 {
-    Channel ch(creator, name);
-    _channels.insert(std::pair<std::string, Channel>(name, ch));
-    return (ch);
+    Channel *ch = new Channel(creator, name);
+
+    _channels.push_back(ch);
+    _channelsByName.insert(std::pair<std::string, Channel *>(name, ch));
+    return ch;
 }
 
 //////////////////////// COMMANDS /////////////////////////////
 
-void Server::handlePass(Client& client, std::stringstream& command)
+void Server::handlePass(Client *client, std::stringstream& command)
 {
     std::string word;
 
@@ -291,18 +336,18 @@ void Server::handlePass(Client& client, std::stringstream& command)
     std::getline(command, word, ' ');
     if (word != _password)
         // The passwords do not match -- send the message it's incorrect
-        errorClient(ERR_PASSWDMISMATCH, client);
+        notifyClient(client, ERR_PASSWDMISMATCH);
     else
-        client.setPassword(word); // set password if correct
+        client->setPassword(word); // set password if correct
 }
 
-void Server::handleUser(Client& client, std::stringstream& command)
+void Server::handleUser(Client *client, std::stringstream& command)
 {
     std::string word;
     
     // Username
     std::getline(command, word, ' ');
-    client.setUsername(word);
+    client->setUsername(word);
 
     // Mode, Asterix
     std::getline(command, word, ' ');
@@ -310,30 +355,30 @@ void Server::handleUser(Client& client, std::stringstream& command)
 
     // Real name
     std::getline(command, word, ' ');
-    client.setRealname(word);
+    client->setRealname(word);
 }
 
-void Server::handleNick(Client& client, std::stringstream& command)
+void Server::handleNick(Client *client, std::stringstream& command)
 {
     std::string word;
    
     std::getline(command, word, ' ');
-    std::cout << "NICKNAME: " << word << std::endl;
-    client.setNickname(word);
+    client->setNickname(word);
 }
 
-void Server::handleCap(Client& client, std::stringstream& command)
+void Server::handleCap(Client *client, std::stringstream& command)
 {
     std::string word;
     
     std::getline(command, word, ' ');
     if (word == "LS") // 
-        client.receiveMsg(":server CAP * LS :\r\n"); // No capabilities
+        client->receiveMsg(":server CAP * LS :\r\n"); // No capabilities
     else // Do not support any other than LS
-        client.receiveMsg(":server 421 " + client.getIrcNickname() + " " + word + ":unknown command for CAP\r\n");
+        notifyClient(client, ERR_UNKNOWN_COMMAND, word);
 }
 
-void Server::handleJoin(Client &client, std::stringstream &command)
+// JOIN <channels> [<keys>]
+void Server::handleJoin(Client *client, std::stringstream &command)
 {
     std::string word;
     std::getline(command, word, ' ');
@@ -349,46 +394,54 @@ void Server::handleJoin(Client &client, std::stringstream &command)
         if (word[0] != '#' || word.size() < 2)
             continue ;
 
-        std::map<std::string, Channel>::iterator it = _channels.find(word); 
-        if (it == _channels.end()) // channel with that name was not found - create it
-        {
-            Channel &ch = createChannel(client, word);
-        }
-        _channels.at(word).addMember(client);
+        std::pair<Channel *, bool> optChannel = _channelsByName.find(word);
+        if (optChannel.second)
+            optChannel.first->addMember(client);
+        else
+            createChannel(client, word);
     }
 }
 
-void Server::handleKick(Client &client, std::stringstream &command)
+// KICK <channel> <client> :[<message>]
+void Server::handleKick(Client *client, std::stringstream &command)
 {
-    std::string channel, who, message;
+    std::string channel, member, message;
     std::getline(command, channel, ' ');
-    std::getline(command, who, ' ');
+    std::getline(command, member, ' ');
     std::getline(command, message, ' ');
 
     if (channel[0] != '#')
         return ;
-    std::map<std::string, Channel>::iterator it = _channels.find(channel); 
-    if (it != _channels.end())
+    std::pair<Channel *, bool> optCh = _channelsByName.find(channel);
+    if (optCh.second)
     {
-        Channel &ch = it->second;
+        Channel *ch = optCh.first;
 
         // are YOU a channel's operator first of all??
-        if (!client.isOperatorOf(ch))
-            return ;
-
-        std::pair<Client *, bool> opt = ch.hasMember(who);
-        if (opt.second)
-            it->second->receiveMsg("ERROR :" + message);
+        if (ch->hasOperator(client))
+        {
+            std::pair<Client *, bool> optMember = ch->hasMember(member);
+            if (optMember.second)
+            {
+                // :<source> KICK <channel> <target> :<reason>
+                optMember.first->receiveMsg(
+                    ":" + client->getNickname() + "!" + client->getUsername() + "@host" +
+                    "KICK " + channel + " " +
+                    member + " " + message
+                );
+            }
+            else
+                notifyClient(client, ERR_USERNOTINCHANNEL, member + " " + channel);
+        }
+        else
+            notifyClient(client, ERR_NOPRIVILEGES);
     }
     else
-        client.receiveMsg(":server :channel with that name does not exist\r\n");
-
-
-        std::vector<Client> cl;
+        notifyClient(client, ERR_NOSUCHCHANNEL, channel);
 }
 
 // INVITE <nickname> <channel>
-void Server::handleInvite(Client &client, std::stringstream &command)
+void Server::handleInvite(Client *client, std::stringstream &command)
 {
     std::string nickname, channel;
 
@@ -398,88 +451,101 @@ void Server::handleInvite(Client &client, std::stringstream &command)
     if (channel[0] != '#' || channel.size() < 2)
         return ;
 
-    std::map<std::string, Channel>::iterator itCh = _channels.find(channel);
-    if (itCh == _channels.end())
-        return ; // Sorry, channel does not exist
-
-    Channel &ch = itCh->second;
-
-    if (!client.isMemberOf(ch))
-        return ; // Sorry, not a member
-    
-    // if channel is invite-only only operators can invite
-    if ((ch.getModes() & Channel::E_INVITE_ONLY) && !client.isOperatorOf(ch))
+    std::pair<Channel *, bool> optChannel = _channelsByName.find(channel);
+    if (optChannel.second)
     {
-        client.receiveMsg("ERROR :you are not channel's operator\r\n");
-        return ;
-    }
-    
-    // Invite client with the following name
-    for (std::map<int, Client>::iterator it = _clients.begin(); it != _clients.end(); ++it)
-    {
-        // Send the invitation in format: :<inviter> INVITE <invitee> :<channel>
-        if (it->second.getNickname() == nickname)
-            it->second.receiveMsg(":" + client.getNickname() + " INVITE " + nickname + " :" + channel + "\r\n");
-    }
-}
+        Channel *ch = optChannel.first;
 
-void Server::handleTopic(Client &client, std::stringstream &command)
-{
-
-}
-
-void Server::handleMode(Client &client, std::stringstream &command)
-{
-    std::string first, flags;
-
-    std::getline(command, first, ' ');
-    std::getline(command, flags, ' ');
-
-    // Setting modes for a channel
-    if (first[0] == '#')
-    {
-        std::map<std::string, Channel>::iterator it = _channels.find(first);
-        if (it == _channels.end())
-            return ; // No such channel :(
-
-        Channel &ch = it->second;
-        if (!client.isOperatorOf(ch))
-            return ;
-            
-        if (!flags.empty())
+        if (ch->hasMember(client))
         {
-            unsigned int modes = 0;
-            for (size_t i = 1; i < flags.size(); ++i)
+            // if channel is invite-only only operators can invite
+            if (ch->getModes() & Channel::E_INVITE_ONLY)
             {
-                switch (flags[i])
+                if (!ch->hasOperator(client))
                 {
-                case 'i':
-                    modes |= modes & Channel::E_INVITE_ONLY;
-                    break;
-                case 't':
-                    modes |= modes & Channel::E_TOPIC_RESTRICT;
-                    break;
-                case 'k':
-                    modes |= modes & Channel::E_CHANNEL_KEY;
-                    break;
-                case 'l':
-                    modes |= modes & Channel::E_USER_LIMIT;
-                    break;
+                    notifyClient(client, ERR_CHANOPRIVSNEEDED, client->getIrcNickname() + " " + channel);
+                    return ;
                 }
             }
-            if (flags[0] == '+')
-                ch.addModes(modes);
+
+            std::pair<Client *, bool> optInvitee = _clientsByName.find(nickname);
+            if (optInvitee.second)
+            {
+                Client *invitee = optInvitee.first;
+
+                // :<inviter>!<user>@<host> INVITE <invitee> :<channel>
+                invitee->receiveMsg(client->getFullUserPrefix() + " INVITE " + invitee->getNickname() + ":" + channel); // ! Not sure about username
+
+                // :server 341 <inviter> <invitee> <channel>
+                notifyClient(client, RPL_INVITING, client->getNickname() + " " + invitee->getNickname() + " " + channel);
+            }
             else
-                ch.removeModes(modes);
+                notifyClient(client, ERR_NOSUCHNICK);
         }
         else
-        {
-            // Wanna know the current channel's modes
-            // ? Do we want to implement?
-        }
+            notifyClient(client, ERR_NOTONCHANNEL, client->getIrcNickname() + " " + channel);
     }
-    else // no '#'? then it's a user hahaaaaa
-    {
+    else
+        notifyClient(client, ERR_NOSUCHCHANNEL, channel);
+}
 
-    }
+void Server::handleTopic(Client *client, std::stringstream &command)
+{
+
+}
+
+void Server::handleMode(Client *client, std::stringstream &command)
+{
+    // std::string first, flags;
+
+    // std::getline(command, first, ' ');
+    // std::getline(command, flags, ' ');
+
+    // // Setting modes for a channel
+    // if (first[0] == '#')
+    // {
+    //     std::map<std::string, Channel>::iterator it = _channels.find(first);
+    //     if (it == _channels.end())
+    //         return ; // No such channel :(
+
+    //     Channel &ch = it->second;
+    //     if (!client.isOperatorOf(ch))
+    //         return ;
+            
+    //     if (!flags.empty())
+    //     {
+    //         unsigned int modes = 0;
+    //         for (size_t i = 1; i < flags.size(); ++i)
+    //         {
+    //             switch (flags[i])
+    //             {
+    //             case 'i':
+    //                 modes |= modes & Channel::E_INVITE_ONLY;
+    //                 break;
+    //             case 't':
+    //                 modes |= modes & Channel::E_TOPIC_RESTRICT;
+    //                 break;
+    //             case 'k':
+    //                 modes |= modes & Channel::E_CHANNEL_KEY;
+    //                 break;
+    //             case 'l':
+    //                 modes |= modes & Channel::E_USER_LIMIT;
+    //                 break;
+    //             }
+    //         }
+    //         if (flags[0] == '+')
+    //             ch.addModes(modes);
+    //         else
+    //             ch.removeModes(modes);
+    //     }
+    //     else
+    //     {
+    //         // Wanna know the current channel's modes
+    //         // ? Do we want to implement?
+    //     }
+    // }
+    // else // no '#'? then it's a user hahaaaaa
+    // {
+
+    // }
 }
