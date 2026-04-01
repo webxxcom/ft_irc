@@ -2,6 +2,7 @@
 #include "irc.hpp"
 #include <cstring>
 #include <sstream>
+#include <algorithm>
 
 void Server::setupCommands()
 {
@@ -98,6 +99,7 @@ void Server::acceptClient(void) {
     _clients.insert(std::pair<int, Client>(clientfd.fd, Client(clientfd.fd)));
 }
 
+// before disconnecting the client we want to send all of the messages to them
 void Server::disconnectClient(Client &client) {
     // Now this method takes no `i' so we must get it from somewhere to clean the Server::_pollfds
     // Created a map to store fd -> index to be able to get the client's index in the Server::_pollfds by client's fd
@@ -135,27 +137,23 @@ void Server::handleClientCommands(Client &client)
     }
 }
 
-// Pass the error handling to a separate function with error_codes to send to the client
-// Exception we throw so far has the message to send to the client but the design is under the question
-//  because exception's messages for us to get not for us to send to some application.
-//  Bad practice here but i guess we've got no other choice? debatable
-void Server::terminateClient(ServerErrorCodes error_code, Client &client)
+// Errors are divided into two types: the ones which disconnect the client 
+//  and the ones which just send them the error occured.
+void Server::errorClient(ServerErrorCodes error_code, Client &client)
 {
     std::string msg;
     switch (error_code)
     {
         case ERR_PASSWDMISMATCH:
-            msg = ":server 464 " + client.getIrcNickname() + " :Password incorrect";
+            throw ClientException(":server 464 " + client.getIrcNickname() + " :Password incorrect\r\n");
             break ;
         case ERR_ALREADYREGISTERED:
-            msg = ":server 462 " + client.getIrcNickname() + " :already registered";
+            throw ClientException(":server 462 " + client.getIrcNickname() + " :already registered\r\n");
             break ;
         case ERR_NOTREGISTERED:
-            msg = ":server 451 " + client.getIrcNickname() + " :complete registration first";
+            throw ClientException(":server 451 " + client.getIrcNickname() + " :complete registration first\r\n");
             break ;
     }
-    msg += "\r\n";
-    throw ClientException(msg);
 }
 
 void Server::receiveClientData(Client &client)
@@ -267,26 +265,20 @@ void Server::handlePolls()
             }
             ++i;
         }
-        // For now let us assume that if client disconnects due to an error we always have to send the respond
-        // Except for the case when client disconnects themselves : exception is not thrown obviously
         catch(const ClientException& e)
         {
-            ssize_t total = 0, len = strlen(e.what());
-            
-            while (total < len)
-            {
-                std::cout << "Sending " << e.what() + total << std::endl;
-                // TEST: `messageClient' didn't work
-                ssize_t n = ::send(this->_pollfds[i].fd, e.what() + total, strlen(e.what()) - total, 0);
-                if (n <= 0)
-                    break ;
-                total += n;
-            }
             //to avoid `irc: sending data to server: error 32 Broken pipe'
             // in the client we may receive all the messages from recv? 
             disconnectClient(this->_clients[this->_pollfds[i].fd]);
         }
     }
+}
+
+Channel &Server::createChannel(Client &creator, std::string const &name)
+{
+    Channel ch(creator, name);
+    _channels.insert(std::pair<std::string, Channel>(name, ch));
+    return (ch);
 }
 
 //////////////////////// COMMANDS /////////////////////////////
@@ -299,7 +291,7 @@ void Server::handlePass(Client& client, std::stringstream& command)
     std::getline(command, word, ' ');
     if (word != _password)
         // The passwords do not match -- send the message it's incorrect
-        terminateClient(ERR_PASSWDMISMATCH, client);
+        errorClient(ERR_PASSWDMISMATCH, client);
     else
         client.setPassword(word); // set password if correct
 }
@@ -354,15 +346,13 @@ void Server::handleJoin(Client &client, std::stringstream &command)
         std::getline(channelList, word, ',');
         if (channelList.eof())
             break ;
-        if (word[0] != '#')
+        if (word[0] != '#' || word.size() < 2)
             continue ;
 
         std::map<std::string, Channel>::iterator it = _channels.find(word); 
         if (it == _channels.end()) // channel with that name was not found - create it
         {
-            Channel ch(word);
-            ch.addOperator(client); // The creator is automatically an operator
-            _channels.insert(std::pair<std::string, Channel>(word, ch));
+            Channel &ch = createChannel(client, word);
         }
         _channels.at(word).addMember(client);
     }
@@ -383,17 +373,21 @@ void Server::handleKick(Client &client, std::stringstream &command)
         Channel &ch = it->second;
 
         // are YOU a channel's operator first of all??
-        if (!client.isChannelOperator(ch))
+        if (!client.isOperatorOf(ch))
             return ;
 
-        std::map<std::string, Client *>::const_iterator it = ch.getMembers().find(who);
-        if (it != ch.getMembers().end())
+        std::pair<Client *, bool> opt = ch.hasMember(who);
+        if (opt.second)
             it->second->receiveMsg("ERROR :" + message);
     }
     else
         client.receiveMsg(":server :channel with that name does not exist\r\n");
+
+
+        std::vector<Client> cl;
 }
 
+// INVITE <nickname> <channel>
 void Server::handleInvite(Client &client, std::stringstream &command)
 {
     std::string nickname, channel;
@@ -401,31 +395,31 @@ void Server::handleInvite(Client &client, std::stringstream &command)
     std::getline(command, nickname, ' ');
     std::getline(command, channel, ' ');
 
-    if (channel[0] != '#')
+    if (channel[0] != '#' || channel.size() < 2)
         return ;
-    std::map<std::string, Channel>::iterator itCh = _channels.find(channel);
-    if (itCh != _channels.end())
-    {
-        Channel &ch = itCh->second;
 
-        // if channel is invite-only only operators can invite
-        if (ch.getModes() & Channel::E_INVITE_ONLY)
-        {
-            std::map<std::string, Client *>::const_iterator it = ch.getOperators().find(client.getNickname());
-            if (it == ch.getOperators().end()) // Client is not an operator
-            {
-                client.receiveMsg("ERROR :you are not channel's operator\r\n");
-                return ;
-            }
-        }
-        
-        // Invite client with the following name
-        for (std::map<int, Client>::iterator it = _clients.begin(); it != _clients.end(); ++it)
-        {
-            // Send the invitation in format: :<inviter> INVITE <invitee> :<channel>
-            if (it->second.getNickname() == nickname)
-                it->second.receiveMsg(":" + client.getNickname() + " INVITE " + nickname + " :" + channel + "\r\n");
-        }
+    std::map<std::string, Channel>::iterator itCh = _channels.find(channel);
+    if (itCh == _channels.end())
+        return ; // Sorry, channel does not exist
+
+    Channel &ch = itCh->second;
+
+    if (!client.isMemberOf(ch))
+        return ; // Sorry, not a member
+    
+    // if channel is invite-only only operators can invite
+    if ((ch.getModes() & Channel::E_INVITE_ONLY) && !client.isOperatorOf(ch))
+    {
+        client.receiveMsg("ERROR :you are not channel's operator\r\n");
+        return ;
+    }
+    
+    // Invite client with the following name
+    for (std::map<int, Client>::iterator it = _clients.begin(); it != _clients.end(); ++it)
+    {
+        // Send the invitation in format: :<inviter> INVITE <invitee> :<channel>
+        if (it->second.getNickname() == nickname)
+            it->second.receiveMsg(":" + client.getNickname() + " INVITE " + nickname + " :" + channel + "\r\n");
     }
 }
 
@@ -449,7 +443,7 @@ void Server::handleMode(Client &client, std::stringstream &command)
             return ; // No such channel :(
 
         Channel &ch = it->second;
-        if (!client.isChannelOperator(ch))
+        if (!client.isOperatorOf(ch))
             return ;
             
         if (!flags.empty())

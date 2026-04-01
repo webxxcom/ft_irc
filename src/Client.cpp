@@ -92,7 +92,12 @@ void Client::receiveMsg(std::string const& msg)
     _inMsg.push_back(msg);
 }
 
-bool Client::isChannelOperator(Channel const &ch)
+bool Client::isOperatorOf(Channel const &ch)
 {
     return ch.getOperators().find(_nickname) != ch.getOperators().end();
+}
+
+bool Client::isMemberOf(Channel const &ch)
+{
+    return ch.getMembers().find(_nickname) != ch.getMembers().end();
 }

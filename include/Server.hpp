@@ -35,6 +35,7 @@ class Server {
 		void handleClientCommands(Client &client);
 
 		void handlePolls();
+		Channel &createChannel(Client &cl, std::string const& name);
 
 		// Commands
 		void handlePass(Client& client, std::stringstream& command);
@@ -47,7 +48,7 @@ class Server {
 		void handleTopic(Client& client, std::stringstream& command);
 		void handleMode(Client& client, std::stringstream& command);
 
-		void terminateClient(ServerErrorCodes error_code, Client &client);
+		void errorClient(ServerErrorCodes error_code, Client &client);
 		Server(const Server &);
 	public:
 		Server(int ac, char *av[]);

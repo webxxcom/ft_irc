@@ -4,11 +4,11 @@
 
 class Channel {
 private:
-    std::string                     _name;
-    std::vector<std::string>        _messages;
-    std::map<std::string, Client *> _members;
-    std::map<std::string, Client *> _operators;
-    unsigned int                    _modes;
+    std::string                 _name;
+    std::vector<std::string>    _messages;
+    std::set<Client *>          _members;
+    std::set<Client *>          _operators;
+    unsigned int                _modes;
 
 public:
     enum ChannelModes {
@@ -19,13 +19,17 @@ public:
     };
 
     Channel(std::string const& name);
+    Channel(Client &creator, std::string const& name);
 
     // Getters
     std::string const& getName() const;
-    std::map<std::string, Client *> const& getMembers() const;
-    std::map<std::string, Client *> const& getOperators() const;
+    std::set<Client *> const& getMembers() const;
+    std::set<Client *> const& getOperators() const;
     std::vector<std::string> const& getMessages() const;
     unsigned int getModes() const;
+
+    // ??
+    std::pair<Client *, bool> hasMember(std::string)
 
     // Modifiers
     void setModes(unsigned int modes);
