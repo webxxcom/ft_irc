@@ -98,6 +98,10 @@ void Server::acceptClient(void) {
     _clients.insert(std::pair<int, Client>(clientfd.fd, Client(clientfd.fd)));
 }
 
+// also ask roman on the purpose of index_map 
+// dont think it works properly after some disconnection of client.. 
+// index does not get updated? or did i miss it?
+
 void Server::disconnectClient(Client &client) {
     int const i = _fd_index_map[client.getFd()];
 
@@ -106,6 +110,7 @@ void Server::disconnectClient(Client &client) {
     _fd_index_map.erase(this->_pollfds[i].fd);
     this->_clients.erase(this->_pollfds[i].fd);
     this->_pollfds.erase(this->_pollfds.begin() + i);
+    // + remove from channels 
 }
 
 void Server::handleClientCommands(Client &client)
@@ -222,7 +227,9 @@ void Server::messageClient(Client &client) {
 }
 
 void Server::finishServer(void) {
-    //cleanup all fds
+    //close all clients fd
+    //close server fd in destructor
+
 }
 
 void Server::startServer(void) {
@@ -247,25 +254,29 @@ void Server::handlePolls()
         {
             if (this->_pollfds[i].revents != 0)
             {
-                if (this->_pollfds[i].fd == this->_serverSocketfd 
-                        && this->_pollfds[i].revents & POLLIN) {
-                    acceptClient();
+                if (this->_pollfds[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
+                    if (this->_pollfds[i].fd == this->_serverSocketfd)
+                        finishServer();
+                    else
+                        disconnectClient(this->_clients[this->_pollfds[i].fd]);
                 }
-                else if (this->_pollfds[i].revents & POLLIN) {
-                    receiveClientData(this->_clients[this->_pollfds[i].fd]);
+                if (this->_pollfds[i].revents & POLLIN) {
+                    if (this->_pollfds[i].fd == this->_serverSocketfd)
+                        acceptClient();
+                    else
+                        receiveClientData(this->_clients[this->_pollfds[i].fd]);
                 }
-                else if (this->_pollfds[i].revents & POLLOUT) {
+                if (this->_pollfds[i].revents & POLLOUT)
                     messageClient(this->_clients.at(this->_pollfds[i].fd));
-                }
-                else if (this->_pollfds[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
-                    //issue with client, need to remove him, free fd, erase from all lists
-                }
             }
             ++i;
         }
         catch(const ClientException& e)
         {
             ssize_t total = 0, len = strlen(e.what());
+
+            // talk to roman: dont think can use while loop here to not block server
+            //just send and disconnect?
             
             while (total < len)
             {
