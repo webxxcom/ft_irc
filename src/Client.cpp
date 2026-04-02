@@ -3,6 +3,8 @@
 #include <iostream>
 #include <sstream>
 #include "Exceptions.hpp"
+#include "Server.hpp"
+#include "Channel.hpp"
 
 ClientState::ClientState() : pass_ok(false), has_nick(false), has_user(false) { }
 
@@ -76,7 +78,7 @@ void Client::setNickname(std::string const& nickname)
     _state.has_nick = true;
 }
 
-std::vector<std::string> Client::getinMsg(void) {
+std::vector<std::string> Client::getInMsg(void) {
     return this->_inMsg;
 }
 
@@ -135,6 +137,21 @@ void Client::receiveMsg(irc::ServerNotifyCodes error_code, std::string const& ex
         case ERR_CHANOPRIVSNEEDED:
             msg << extra << " :You're not channel operator";
             break;
+        case ERR_UNKNOWNMODE:
+            msg << extra << " :is unknown mode char to me";
+            break;
+        case ERR_INVITEONLYCHAN:
+            msg << extra << " :Cannot join channel (+i)";
+            break;
+        case ERR_BADCHANNELKEY:
+            msg << extra << " :Cannot join channel (+k)";
+            break;
+        case ERR_KEYSET:
+            msg << extra << " :"; // ! provide message for the error
+            break;
+        case ERR_NEEDMOREPARAMS:
+            msg << extra << " :Not enough parameters";
+            break;
         case RPL_INVITING:
             msg << extra;
             break;
@@ -143,6 +160,9 @@ void Client::receiveMsg(irc::ServerNotifyCodes error_code, std::string const& ex
             break;
         case RPL_ENDOFNAMES:
             msg << extra << " :End of NAMES"; // ! must implement the end of names
+            break;
+        case RPL_CHANNELMODEIS:
+            msg << extra;
             break;
         case RPL_WELCOME:
             msg << extra << " :Welcome to the IRC server";

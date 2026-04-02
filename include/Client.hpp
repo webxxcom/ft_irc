@@ -13,6 +13,9 @@ struct ClientState
     ClientState();
 };
 
+class Server;
+class Channel;
+
 class Client {
 private:
     ClientState                     _state; // state to check the state
@@ -60,9 +63,11 @@ public:
     void setUsername(std::string const& username);
     void setRealname(std::string const& username);
     
-    std::vector<std::string> getinMsg(void);
+    std::vector<std::string> getInMsg(void);
     void addtoBuffer(std::string msg);
 
     void receiveMsg(irc::ServerNotifyCodes error_code, std::string const& extra = "");
     void receiveMsg(std::string const& msg);
+
+    friend class Tester;
 } ;

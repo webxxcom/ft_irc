@@ -7,43 +7,58 @@
 
 class Channel {
 private:
-    std::string                 _name;
-    std::vector<std::string>    _messages;
-    std::set<Client *>          _members;
-    std::set<Client *>          _operators;
-    unsigned int                _modes;
+	std::string                 _name;
+	std::vector<std::string>    _messages;
+	std::set<Client *>          _members;
+	std::set<Client *>          _operators;
 
+	struct Mode{
+		unsigned int            _modes;
+		size_t               	_userLimit;
+		std::string             _key;
+
+		Mode() : _modes(0), _userLimit(0) { }
+	} _modes;
+
+	
 public:
-    enum ChannelModes {
-        E_INVITE_ONLY = 0x1,
-        E_TOPIC_RESTRICT = 0x2,
-        E_CHANNEL_KEY = 0x4,
-        E_USER_LIMIT = 0x8
-    };
+	enum ChannelModes {
+		E_INVITE_ONLY = 0x1,
+		E_TOPIC_RESTRICT = 0x2,
+		E_CHANNEL_KEY = 0x4,
+		E_USER_LIMIT = 0x8
+	};
 
-    Channel(std::string const& name);
-    Channel(Client *creator, std::string const& name);
+	Channel(std::string const& name);
+	Channel(Client *creator, std::string const& name);
 
-    // Getters
-    std::string const& getName() const;
-    std::set<Client *> const& getMembers() const;
-    std::set<Client *> const& getOperators() const;
-    std::vector<std::string> const& getMessages() const;
-    unsigned int getModes() const;
+	// Getters
+	std::string const&				getName() 			const;
+	std::set<Client *> const&		getMembers() 		const;
+	std::set<Client *> const&		getOperators() 		const;
+	std::vector<std::string> const&	getMessages() 		const;
+	unsigned int					getModes() 			const;
+	std::string						getIrcModes() 		const;
+	size_t							getUserLimit() 		const;
+	bool							isInviteOnly()		const;
+	bool							isTopicRestricted()	const;
+	std::string const&				getKey()			const;
 
-    // ??
-    std::pair<Client *, bool>   hasMember(std::string const& nick)    const;
-    bool                        hasMember(Client *cl)                 const;
-    std::pair<Client *, bool>   hasOperator(std::string const& nick)  const;
-    bool                        hasOperator(Client *cl)               const;
+	Client *   						hasMember(std::string const& nick)    const;
+	bool                        	hasMember(Client *cl)                 const;
+	Client *   						hasOperator(std::string const& nick)  const;
+	bool                        	hasOperator(Client *cl)               const;
 
-    // Modifiers
-    void setModes(unsigned int modes);
-    void addModes(unsigned int mode);
-    void removeModes(unsigned int mode);
-    void addMember(Client *cl);
-    void addOperator(Client *cl);
-    void removeMember(Client *cl);
+	// Modifiers
+	
+	void addMember(Client *cl);
+	void addOperator(Client *cl);
+	void removeMember(Client *cl);
+	void makeInviteOnly();
+	void makeTopicRestricted();
+	void makeUserLimit(size_t l);
+	void makeKey(std::string const& key);
+	void removeMode(unsigned int mode);
 
-    void broadcast(std::string const& msg);
+	void broadcast(std::string const& msg);
 };

@@ -149,7 +149,7 @@ void Server::receiveClientData(Client *client)
 
 void Server::messageClient(Client &client) {
     ssize_t bytessend;
-    std::vector<std::string> msgtoSend = client.getinMsg();
+    std::vector<std::string> msgtoSend = client.getInMsg();
     if (msgtoSend[0].empty()) { //or could do bool msgready
         return ;
     } 
@@ -167,6 +167,16 @@ void Server::messageClient(Client &client) {
 
 void Server::finishServer(void) {
     //cleanup all fds
+}
+
+AdvancedMap<std::string, Channel *> const &Server::getChannelsByName() const
+{
+    return _channelsByName;
+}
+
+std::vector<Channel *> const &Server::getChannels() const
+{
+    return _channels;
 }
 
 void Server::startServer(void) {

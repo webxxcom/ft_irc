@@ -270,7 +270,7 @@ ERROR_REPLIES:
       n/a
 
   472:
-    name: ERR_UNKNOWNMODE
+    name: 
     reply: <char> :is unknown mode char to me
     desc: >
       n/a

@@ -50,13 +50,18 @@ class Server {
 		Channel *createChannel(Client *cl, std::string const& name);
 
 		// Commands
-		void notifyClient(Client *client, irc::ServerNotifyCodes error_code, std::string const& extra = "");
 		Server(const Server &);
 	public:
 		Server(int ac, char *av[]);
 		~Server();
 		void startServer();
 		void finishServer();
+
+		// TEST FUNCTION
+		friend class Tester;
+
+		AdvancedMap<std::string, Channel *> const& 	getChannelsByName() const;
+		std::vector<Channel *> const&				getChannels() 		const;
 } ;
 
 enum returned {

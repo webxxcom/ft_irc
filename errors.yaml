@@ -179,13 +179,6 @@ ERROR_REPLIES:
       Returned as a response to the USERS command. Must be returned by
       any server which does not implement it.
       
-  461:
-    name: ERR_NEEDMOREPARAMS
-    reply: <command> :Not enough parameters
-    desc: >
-      Returned by the server by numerous commands to indicate to the
-      client that it didn't supply enough parameters.
-      
   463:
     name: ERR_NOPERMFORHOST
     reply: :Your host isn't among the privileged
@@ -210,18 +203,6 @@ ERROR_REPLIES:
   471:
     name: ERR_CHANNELISFULL
     reply: <channel> :Cannot join channel (+l)
-    desc: >
-      n/a
-
-  472:
-    name: ERR_UNKNOWNMODE
-    reply: <char> :is unknown mode char to me
-    desc: >
-      n/a
-
-  473:
-    name: ERR_INVITEONLYCHAN
-    reply: <channel> :Cannot join channel (+i)
     desc: >
       n/a
 
