@@ -1,6 +1,9 @@
 #pragma once
 
-#include "irc.hpp"
+#include <string>
+#include <vector>
+#include <set>
+#include "Client.hpp"
 
 class Channel {
 private:

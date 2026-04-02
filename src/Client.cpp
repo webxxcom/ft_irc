@@ -1,5 +1,6 @@
-#include "../include/irc.hpp"
 #include "Client.hpp"
+
+#include <iostream>
 
 ClientState::ClientState() : pass_ok(false), has_nick(false), has_user(false) { }
 

@@ -1,8 +1,7 @@
-#ifndef CLIENT_HPP
-#define CLIENT_HPP
+#pragma once
 
-#include "irc.hpp"
-#include <stack>
+#include <string>
+#include <vector>
 
 struct ClientState
 {
@@ -65,5 +64,3 @@ public:
 
     void receiveMsg(std::string const& msg);
 } ;
-
-#endif

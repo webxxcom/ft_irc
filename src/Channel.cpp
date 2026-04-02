@@ -1,11 +1,5 @@
-/* --- Channel.cpp --- */
-
-/* ------------------------------------------
-author: Webxxcom
-date: 3/31/2026
------------------------------------------- */
-
 #include "Channel.hpp"
+#include <algorithm>
 
 Channel::Channel(std::string const &name) : _name(name), _modes(0) { }
 Channel::Channel(Client *creator, std::string const &name) : _name(name), _modes(0) { addOperator(creator); }
