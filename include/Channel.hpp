@@ -41,6 +41,9 @@ public:
     void setModes(unsigned int modes);
     void addModes(unsigned int mode);
     void removeModes(unsigned int mode);
-    void addMember(Client *user);
-    void addOperator(Client *user);
+    void addMember(Client *cl);
+    void addOperator(Client *cl);
+    void removeMember(Client *cl);
+
+    void broadcast(std::string const& msg);
 };

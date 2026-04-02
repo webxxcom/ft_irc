@@ -1,6 +1,8 @@
 #include "Client.hpp"
 
 #include <iostream>
+#include <sstream>
+#include "Exceptions.hpp"
 
 ClientState::ClientState() : pass_ok(false), has_nick(false), has_user(false) { }
 
@@ -91,7 +93,69 @@ void Client::addtoBuffer(std::string msg) {
     }
 }
 
-void Client::receiveMsg(std::string const& msg)
+// Errors are divided into two types: the ones which disconnect the client 
+//  and the ones which just send them the error occured to the client.
+void Client::receiveMsg(irc::ServerNotifyCodes error_code, std::string const& extra)
+{
+    std::stringstream msg;
+    msg << ":server " << (int)error_code << " " + getIrcNickname();
+    if (!extra.empty())
+        msg << " ";
+
+    using namespace irc;
+    switch (error_code)
+    {
+        case ERR_PASSWDMISMATCH:
+            msg << ":Password incorrect\r\n";
+            throw ClientException(msg.str());
+        case ERR_ALREADYREGISTERED:
+            msg << ":already registered\r\n";
+            throw ClientException(msg.str());
+        case ERR_NOTREGISTERED:
+            msg << ":complete registration first\r\n";
+            throw ClientException(msg.str());
+        case ERR_UNKNOWN_COMMAND:
+            msg << extra << " :Unknown command";
+            break ;
+        case ERR_NOSUCHNICK:
+            msg << extra << " :No such nick/channel";
+            break;
+        case ERR_NOSUCHCHANNEL:
+            msg << extra << " :No such channel";
+            break;
+        case ERR_NOTONCHANNEL:
+            msg << extra << " :You're not on that channel";
+            break;
+        case ERR_NOPRIVILEGES:
+            msg << extra << " :Permission Denied- You're not an IRC operator";
+            break;
+        case ERR_USERNOTINCHANNEL:
+            msg << extra << " :They aren't on that channel";
+            break;
+        case ERR_CHANOPRIVSNEEDED:
+            msg << extra << " :You're not channel operator";
+            break;
+        case RPL_INVITING:
+            msg << extra;
+            break;
+        case RPL_NAMREPLY:
+            msg << extra << " :LIST OF NAME"; // ! must implement the NAMES
+            break;
+        case RPL_ENDOFNAMES:
+            msg << extra << " :End of NAMES"; // ! must implement the end of names
+            break;
+        case RPL_WELCOME:
+            msg << extra << " :Welcome to the IRC server";
+            break;
+        default:
+            msg << ":Unknown error";
+            break;
+    }
+    msg << "\r\n";
+    receiveMsg(msg.str());
+}
+
+void Client::receiveMsg(std::string const &msg)
 {
     _inMsg.push_back(msg);
 }

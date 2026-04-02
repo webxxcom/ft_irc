@@ -111,55 +111,6 @@ void Server::disconnectClient(Client *client)
     delete client;
 }
 
-// Errors are divided into two types: the ones which disconnect the client 
-//  and the ones which just send them the error occured to the client.
-void Server::notifyClient(Client *target, ServerNotifyCodes error_code, std::string const& extra)
-{
-    std::stringstream msg;
-    msg << ":server " << (int)error_code << " " + target->getIrcNickname() + " ";
-    switch (error_code)
-    {
-        case ERR_PASSWDMISMATCH:
-            msg << ":Password incorrect\r\n";
-            throw ClientException(msg.str());
-        case ERR_ALREADYREGISTERED:
-            msg << ":already registered\r\n";
-            throw ClientException(msg.str());
-        case ERR_NOTREGISTERED:
-            msg << ":complete registration first\r\n";
-            throw ClientException(msg.str());
-        case ERR_UNKNOWN_COMMAND:
-            msg << extra << " :Unknown command";
-            break ;
-        case ERR_NOSUCHNICK:
-            msg << extra << " :No such nick/channel";
-            break;
-        case ERR_NOSUCHCHANNEL:
-            msg << extra << " :No such channel";
-            break;
-        case ERR_NOTONCHANNEL:
-            msg << extra << " :You're not on that channel";
-            break;
-        case ERR_NOPRIVILEGES:
-            msg << extra << " :Permission Denied- You're not an IRC operator";
-            break;
-        case ERR_USERNOTINCHANNEL:
-            msg << extra << " :They aren't on that channel";
-            break;
-        case ERR_CHANOPRIVSNEEDED:
-            msg << extra << " :You're not channel operator";
-            break;
-        case RPL_INVITING:
-            msg << extra;
-            break;
-        default:
-            msg << ":Unknown error";
-            break;
-    }
-    msg << "\r\n";
-    target->receiveMsg(msg.str());
-}
-
 void Server::receiveClientData(Client *client)
 {
     std::string &buffer = client->getRecvBuffer();
@@ -184,7 +135,7 @@ void Server::receiveClientData(Client *client)
 
         // Client expects message `001' about successfull connection
         if (client->isRegistered())
-            client->receiveMsg(":server 001 " + client->getNickname() + " :Welcome to the IRC server");
+            client->receiveMsg(irc::RPL_WELCOME);
     }
     else
     {

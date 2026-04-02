@@ -49,3 +49,15 @@ void Channel::addOperator(Client *user)
 		addMember(user);
 	_operators.insert(user);
 }
+
+void Channel::removeMember(Client *cl)
+{
+	_members.erase(cl);
+	_operators.erase(cl);
+}
+
+void Channel::broadcast(std::string const &msg)
+{
+	for (std::set<Client *>::iterator it = _members.begin(); it != _members.end(); ++it)
+		(*it)->receiveMsg(msg);
+}

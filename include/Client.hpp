@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include "ServerNotifyCodes.hpp"
 
 struct ClientState
 {
@@ -62,5 +63,6 @@ public:
     std::vector<std::string> getinMsg(void);
     void addtoBuffer(std::string msg);
 
+    void receiveMsg(irc::ServerNotifyCodes error_code, std::string const& extra = "");
     void receiveMsg(std::string const& msg);
 } ;

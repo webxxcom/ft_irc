@@ -1,6 +1,8 @@
 #include "CommandHandler.hpp"
 #include "Server.hpp"
 
+using namespace irc;
+
 void CommandHandler::setupCommands()
 {
     _commandMap["PASS"]     = &CommandHandler::handlePass;
@@ -38,7 +40,7 @@ void CommandHandler::handle(Client *cl)
         if (it != _commandMap.end())
             (this->*(it->second))(cl, line);
         else
-            _server.notifyClient(cl, ERR_UNKNOWN_COMMAND, command);
+            cl->receiveMsg(ERR_UNKNOWN_COMMAND, command);
     }
 }
 
@@ -50,7 +52,7 @@ void CommandHandler::handlePass(Client *client, std::stringstream &command)
     std::getline(command, word, ' ');
     if (word != _server._password)
         // The passwords do not match -- send the message it's incorrect
-        _server.notifyClient(client, ERR_PASSWDMISMATCH);
+        client->receiveMsg(ERR_PASSWDMISMATCH);
     else
         client->setPassword(word); // set password if correct
 }
@@ -88,31 +90,39 @@ void CommandHandler::handleCap(Client *client, std::stringstream& command)
     if (word == "LS")
         client->receiveMsg(":server CAP * LS :\r\n"); // No capabilities
     else // Do not support any other than LS
-        _server.notifyClient(client, ERR_UNKNOWN_COMMAND, word);
+        client->receiveMsg(ERR_UNKNOWN_COMMAND, word);
 }
 
 // JOIN <channels> [<keys>]
 void CommandHandler::handleJoin(Client *client, std::stringstream &command)
 {
-    std::string word;
-    std::getline(command, word, ' ');
+    std::string channel;
+    std::getline(command, channel, ' ');
 
     // ! The keys to channels are not yet implemented
     std::stringstream channelList;
-    channelList << word;
+    channelList << channel;
     while (1)
     {
-        std::getline(channelList, word, ',');
+        std::getline(channelList, channel, ',');
         if (channelList.eof())
             break ;
-        if (word[0] != '#' || word.size() < 2)
+        if (channel[0] != '#' || channel.size() < 2)
             continue ;
 
-        std::pair<Channel *, bool> optChannel = _server._channelsByName.find(word);
-        if (optChannel.second)
-            optChannel.first->addMember(client);
+        Channel *ch;
+        std::pair<Channel *, bool> optChannel = _server._channelsByName.find(channel);
+        if (!optChannel.second)
+            ch = _server.createChannel(client, channel);
         else
-            _server.createChannel(client, word);
+            ch = optChannel.first;
+        
+        std::string msg = 
+            ":" + client->getFullUserPrefix() + " JOIN " + ":" + channel;
+        ch->broadcast(msg);
+        ch->addMember(client);
+        client->receiveMsg(RPL_NAMREPLY, client->getNickname() + " = " + channel);
+        client->receiveMsg(RPL_ENDOFNAMES, client->getNickname() + " " + channel);
     }
 }
 
@@ -124,34 +134,30 @@ void CommandHandler::handleKick(Client *client, std::stringstream &command)
     std::getline(command, member, ' ');
     std::getline(command, message, ' ');
 
-    if (channel[0] != '#')
+    if (channel[0] != '#' || channel.size() < 2)
         return ;
     std::pair<Channel *, bool> optCh = _server._channelsByName.find(channel);
-    if (optCh.second)
-    {
-        Channel *ch = optCh.first;
+    if (!optCh.second)
+        return client->receiveMsg(ERR_NOSUCHCHANNEL, channel);
 
-        // are YOU a channel's operator first of all??
-        if (ch->hasOperator(client))
-        {
-            std::pair<Client *, bool> optMember = ch->hasMember(member);
-            if (optMember.second)
-            {
-                // :<source> KICK <channel> <target> :<reason>
-                optMember.first->receiveMsg(
-                    ":" + client->getNickname() + "!" + client->getUsername() + "@host" +
-                    "KICK " + channel + " " +
-                    member + " " + message
-                );
-            }
-            else
-                _server.notifyClient(client, ERR_USERNOTINCHANNEL, member + " " + channel);
-        }
-        else
-            _server.notifyClient(client, ERR_NOPRIVILEGES);
-    }
-    else
-        _server.notifyClient(client, ERR_NOSUCHCHANNEL, channel);
+    Channel *ch = optCh.first;
+    if (!ch->hasMember(client))
+        return client->receiveMsg(ERR_NOTONCHANNEL, client->getNickname() + channel);
+
+    if (!ch->hasOperator(client))
+        return client->receiveMsg(ERR_CHANOPRIVSNEEDED, client->getNickname() + channel);
+        
+    std::pair<Client *, bool> optMember = ch->hasMember(member);
+    if (!optMember.second)
+        return client->receiveMsg(ERR_USERNOTINCHANNEL, member + " " + channel);
+
+    // :<source> KICK <channel> <target> :<reason>
+    std::string msg = 
+        ":" + client->getNickname() + "!" + client->getUsername() + "@host" +
+        " KICK " + channel + " " + member + " :" + message + "\r\n";
+
+    ch->broadcast(msg);
+    ch->removeMember(optMember.first);
 }
 
 // INVITE <nickname> <channel>
@@ -166,41 +172,27 @@ void CommandHandler::handleInvite(Client *client, std::stringstream &command)
         return ;
 
     std::pair<Channel *, bool> optChannel = _server._channelsByName.find(channel);
-    if (optChannel.second)
-    {
-        Channel *ch = optChannel.first;
+    if (!optChannel.second)
+        return client->receiveMsg(ERR_NOSUCHCHANNEL, channel);
 
-        if (ch->hasMember(client))
-        {
-            // if channel is invite-only only operators can invite
-            if (ch->getModes() & Channel::E_INVITE_ONLY)
-            {
-                if (!ch->hasOperator(client))
-                {
-                    _server.notifyClient(client, ERR_CHANOPRIVSNEEDED, client->getIrcNickname() + " " + channel);
-                    return ;
-                }
-            }
+    Channel *ch = optChannel.first;
+    if (!ch->hasMember(client))
+        return client->receiveMsg(ERR_NOTONCHANNEL, client->getIrcNickname() + " " + channel);
+    
+    if ((ch->getModes() & Channel::E_INVITE_ONLY) && !ch->hasOperator(client))
+        return client->receiveMsg(ERR_CHANOPRIVSNEEDED, client->getIrcNickname() + " " + channel);
 
-            std::pair<Client *, bool> optInvitee = _server._clientsByName.find(nickname);
-            if (optInvitee.second)
-            {
-                Client *invitee = optInvitee.first;
+    std::pair<Client *, bool> target = _server._clientsByName.find(nickname);
+    if (!target.second)
+        return client->receiveMsg(ERR_NOSUCHNICK);
 
-                // :<inviter>!<user>@<host> INVITE <invitee> :<channel>
-                invitee->receiveMsg(client->getFullUserPrefix() + " INVITE " + invitee->getNickname() + ":" + channel); // ! Not sure about username
+    Client *invitee = target.first;
 
-                // :server 341 <inviter> <invitee> <channel>
-                _server.notifyClient(client, RPL_INVITING, client->getNickname() + " " + invitee->getNickname() + " " + channel);
-            }
-            else
-                _server.notifyClient(client, ERR_NOSUCHNICK);
-        }
-        else
-            _server.notifyClient(client, ERR_NOTONCHANNEL, client->getIrcNickname() + " " + channel);
-    }
-    else
-        _server.notifyClient(client, ERR_NOSUCHCHANNEL, channel);
+    // :<inviter>!<user>@<host> INVITE <invitee> :<channel>
+    invitee->receiveMsg(client->getFullUserPrefix() + " INVITE " + invitee->getNickname() + ":" + channel); // ! Not sure about username
+
+    // :server 341 <inviter> <invitee> <channel>
+    client->receiveMsg(RPL_INVITING, client->getNickname() + " " + invitee->getNickname() + " " + channel);
 }
 
 void CommandHandler::handleTopic(Client *client, std::stringstream &command)

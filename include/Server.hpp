@@ -9,23 +9,9 @@
 #include "CommandHandler.hpp"
 #include "Channel.hpp"
 #include "Exceptions.hpp"
+#include "ServerNotifyCodes.hpp"
 
 extern volatile sig_atomic_t g_serverRunning; // ! maybe move to Server class
-
-enum ServerNotifyCodes
-{
-	ERR_PASSWDMISMATCH = 464,
-	ERR_NOTREGISTERED = 451,
-	ERR_ALREADYREGISTERED = 462,
-	ERR_UNKNOWN_COMMAND = 421,
-	ERR_NOSUCHNICK = 401,
-	ERR_NOSUCHCHANNEL = 403,
-	ERR_NOTONCHANNEL = 442,
-	ERR_USERNOTINCHANNEL = 441,
-	ERR_NOPRIVILEGES = 481,
-	ERR_CHANOPRIVSNEEDED = 482,
-	RPL_INVITING = 341
-};
 
 class Server {
 	private:
@@ -36,6 +22,7 @@ class Server {
 			bool operator()(pollfd const& o) { return (o.fd == _fd); }
 		};
 
+		friend class CommandHandler;
 		CommandHandler 							_commandHandler;
 		std::string     			            _password;
 		int             			            _port;
@@ -63,9 +50,8 @@ class Server {
 		Channel *createChannel(Client *cl, std::string const& name);
 
 		// Commands
-		void notifyClient(Client *client, ServerNotifyCodes error_code, std::string const& extra = "");
+		void notifyClient(Client *client, irc::ServerNotifyCodes error_code, std::string const& extra = "");
 		Server(const Server &);
-		friend class CommandHandler;
 	public:
 		Server(int ac, char *av[]);
 		~Server();
