@@ -2,6 +2,7 @@
 #include <iostream>
 #include <csignal>
 #include <cassert>
+#include <algorithm>
 
 class Tester {
     public:
@@ -18,6 +19,8 @@ class Tester {
 };
 
 volatile sig_atomic_t g_serverRunning = 1;
+
+std::string port = "6667";
 
 void testGetIrcModes()
 {
@@ -41,7 +44,7 @@ void testGetIrcModes()
 
 void testCorrectPassword()
 {
-    std::string password = "a", nick = "us", port = "6667";
+    std::string password = "a", nick = "us";
     char *argv[] = {
         const_cast<char*>(std::string("./irc").c_str()),
         const_cast<char*>(port.data()),
@@ -68,7 +71,7 @@ void testCorrectPassword()
 
 void testIncorrectPassword()
 {
-    std::string password = "b", nick = "us", port = "6667";
+    std::string password = "b", nick = "us";
     char *argv[] = {
         const_cast<char*>(std::string("./irc").c_str()),
         const_cast<char*>(port.data()),
@@ -96,7 +99,7 @@ void testIncorrectPassword()
 
 void testFullRegistration()
 {
-    std::string password = "a", nick = "user", port = "6667";
+    std::string password = "a", nick = "user";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -125,7 +128,7 @@ void testFullRegistration()
 
 void testJoinChannel()
 {
-    std::string password = "a", port = "6667";
+    std::string password = "a";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -158,7 +161,7 @@ void testJoinChannel()
 
 void testCreateBadChannel()
 {
-    std::string password = "a", port = "6667";
+    std::string password = "a";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -191,7 +194,7 @@ void testCreateBadChannel()
 
 void testJoinMultipleChannels()
 {
-    std::string password = "a", port = "6667";
+    std::string password = "a";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -229,7 +232,7 @@ void testJoinMultipleChannels()
 
 void testJoinWithChannelKey()
 {
-    std::string password = "a", port = "6667";
+    std::string password = "a";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -274,7 +277,7 @@ void testJoinWithChannelKey()
 
 void testJoinInvalidChannel()
 {
-    std::string password = "a", port = "6667";
+    std::string password = "a";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -305,7 +308,7 @@ void testJoinInvalidChannel()
 
 void testInviteOnlyAndInviteCommand()
 {
-    std::string password = "a", port = "6667";
+    std::string password = "a";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -355,7 +358,7 @@ void testInviteOnlyAndInviteCommand()
 
 void testModeOperatorStatus()
 {
-    std::string password = "a", port = "6667";
+    std::string password = "a";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -409,7 +412,7 @@ void testModeOperatorStatus()
 
 void testModeRevokeOperator()
 {
-    std::string password = "a", port = "6667";
+    std::string password = "a";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -452,7 +455,7 @@ void testModeRevokeOperator()
 
 void testModeNonOpCannotGrantOp()
 {
-    std::string password = "a", port = "6667";
+    std::string password = "a";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -490,6 +493,7 @@ void testModeNonOpCannotGrantOp()
         Channel* chan = ser.getChannelsByName().find("#room");
         assert(chan != NULL);
         assert(!chan->hasOperator(target));
+        assert(std::find(regular->getInMsg().begin(), regular->getInMsg().end(), ":server 482 reg #room :You're not channel operator\r\n") != regular->getInMsg().end());
     }
     catch (...)
     {
@@ -499,7 +503,7 @@ void testModeNonOpCannotGrantOp()
 
 void testModeSetInviteOnly()
 {
-    std::string password = "a", port = "6667";
+    std::string password = "a";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -534,7 +538,7 @@ void testModeSetInviteOnly()
 
 void testModeUnsetInviteOnly()
 {
-    std::string password = "a", port = "6667";
+    std::string password = "a";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -571,7 +575,7 @@ void testModeUnsetInviteOnly()
 
 void testModeSetTopicRestricted()
 {
-    std::string password = "a", port = "6667";
+    std::string password = "a";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -605,7 +609,7 @@ void testModeSetTopicRestricted()
 
 void testModeNonOpCannotSetTopic()
 {
-    std::string password = "a", port = "6667";
+    std::string password = "a";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -645,7 +649,7 @@ void testModeNonOpCannotSetTopic()
 
 void testModeSetChannelKey()
 {
-    std::string password = "a", port = "6667";
+    std::string password = "a";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -679,7 +683,7 @@ void testModeSetChannelKey()
 
 void testModeRemoveChannelKey()
 {
-    std::string password = "a", port = "6667";
+    std::string password = "a";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -716,7 +720,7 @@ void testModeRemoveChannelKey()
 
 void testModeSetUserLimit()
 {
-    std::string password = "a", port = "6667";
+    std::string password = "a";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -750,7 +754,7 @@ void testModeSetUserLimit()
 
 void testModeRemoveUserLimit()
 {
-    std::string password = "a", port = "6667";
+    std::string password = "a";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -789,7 +793,7 @@ void testModeRemoveUserLimit()
 
 void testInviteUserToInviteOnlyChannel()
 {
-    std::string password = "a", port = "6667";
+    std::string password = "a";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -834,7 +838,7 @@ void testInviteUserToInviteOnlyChannel()
 
 void testUninvitedUserCannotJoinInviteOnlyChannel()
 {
-    std::string password = "a", port = "6667";
+    std::string password = "a";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -875,7 +879,7 @@ void testUninvitedUserCannotJoinInviteOnlyChannel()
 
 void testNonOpCannotInvite()
 {
-    std::string password = "a", port = "6667";
+    std::string password = "a";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -929,7 +933,7 @@ void testNonOpCannotInvite()
 
 void testInviteToNonExistentChannel()
 {
-    std::string password = "a", port = "6667";
+    std::string password = "a";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -968,7 +972,7 @@ void testInviteToNonExistentChannel()
 
 void testInviteNonExistentUser()
 {
-    std::string password = "a", port = "6667";
+    std::string password = "a";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -1009,7 +1013,7 @@ void testInviteNonExistentUser()
 
 void testJoinWithCorrectKey()
 {
-    std::string password = "a", port = "6667";
+    std::string password = "a";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -1049,7 +1053,7 @@ void testJoinWithCorrectKey()
 
 void testJoinWithWrongKey()
 {
-    std::string password = "a", port = "6667";
+    std::string password = "a";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -1089,7 +1093,7 @@ void testJoinWithWrongKey()
 
 void testJoinChannelAtUserLimit()
 {
-    std::string password = "a", port = "6667";
+    std::string password = "a";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -1130,7 +1134,7 @@ void testJoinChannelAtUserLimit()
 
 void testJoinAlreadyInChannel()
 {
-    std::string password = "a", port = "6667";
+    std::string password = "a";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -1167,7 +1171,7 @@ void testJoinAlreadyInChannel()
 
 void testFirstJoinerBecomesOperator()
 {
-    std::string password = "a", port = "6667";
+    std::string password = "a";
     char *argv[] = {
         const_cast<char*>("./irc"),
         const_cast<char*>(port.c_str()),
@@ -1210,20 +1214,32 @@ int main()
 
     std::cout.rdbuf(buffer.rdbuf());
 
-    testCorrectPassword();
-    testIncorrectPassword();
-    testFullRegistration();
-    testFirstJoinerBecomesOperator();
-    testJoinAlreadyInChannel();
-    testJoinChannelAtUserLimit();
-    testJoinChannel();
-    testCreateBadChannel();
-    testJoinInvalidChannel();
-    testJoinMultipleChannels();
-    //testJoinWithChannelKey(); // ! implement the keys to channels
-    testModeOperatorStatus();
-    //testModeRevokeOperator();
-    testInviteOnlyAndInviteCommand(); // ! need to store if a user was invited 
+    // testCorrectPassword();
+    // testIncorrectPassword();
+    // testFullRegistration();
+    // testFirstJoinerBecomesOperator();
+    // testJoinAlreadyInChannel();
+    // testJoinChannelAtUserLimit();
+    // testJoinChannel();
+    // testCreateBadChannel();
+    // testJoinInvalidChannel();
+    // testJoinMultipleChannels();
+    // //testJoinWithChannelKey(); // ! implement the keys to channels
+    // testModeOperatorStatus();
+
+    ///// MODE test
+    testModeRevokeOperator();
+    testModeNonOpCannotGrantOp();
+    testModeSetInviteOnly();
+    testModeUnsetInviteOnly();
+    testModeSetTopicRestricted();
+    testModeNonOpCannotSetTopic();
+    testModeSetChannelKey();
+    testModeRemoveChannelKey();
+    testModeSetUserLimit();
+    testModeRemoveUserLimit();
+
+   // testInviteOnlyAndInviteCommand(); // ! need to store if a user was invited 
     
     std::cout.rdbuf(oldCoutBuffer);
     std::cout << "All tests finished" << std::endl;

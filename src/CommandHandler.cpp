@@ -263,7 +263,7 @@ void CommandHandler::handleMode(Client *client, std::stringstream &command)
 					}
 					case 'k':
 					{
-						if (ch->getModes() & Channel::E_CHANNEL_KEY)
+						if ((ch->getModes() & Channel::E_CHANNEL_KEY) && flags[0] != '-')
 						{
 							_replyHandler.keySet(client, ch->getName()); 
 							break;
@@ -283,9 +283,17 @@ void CommandHandler::handleMode(Client *client, std::stringstream &command)
 					case 'o':
 					{
 						std::getline(command, param, ' ');
-						Client *target = clientLooksFor(client, param, ch);
-						if (target)
-							ch->addOperator(target);
+						if (!param.empty())
+						{
+							Client *target = clientLooksFor(client, param, ch);
+							if (target)
+							{
+								if (flags[0] == '+') ch->addOperator(target);
+								else ch->removeOperator(target);
+							}
+						}
+						else
+							_replyHandler.needMoreParams(client, "MODE");
 						break;
 					}
 					default:

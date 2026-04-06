@@ -17,32 +17,32 @@ using namespace irc;
 
 void ReplyHandler::noSuchChannel(Client *client, std::string const &channelName) const
 {
-    handle(ERR_NOSUCHCHANNEL, client, client->getIrcNickname() + " " + channelName);
+    handle(ERR_NOSUCHCHANNEL, client, channelName);
 }
 
 void ReplyHandler::noSuchNick(Client *client, const std::string &nick) const
 {
-    handle(ERR_NOSUCHNICK, client, client->getIrcNickname() + " " + nick);
+    handle(ERR_NOSUCHNICK, client, nick);
 }
 
 void ReplyHandler::notOnChannel(Client *client, const std::string &channelName) const
 {
-    handle(ERR_NOTONCHANNEL, client, client->getIrcNickname() + " " + channelName);
+    handle(ERR_NOTONCHANNEL, client, channelName);
 }
 
 void ReplyHandler::userNotInChannel(Client *client, const std::string &nick, const std::string &channelName) const
 {
-    handle(ERR_USERNOTINCHANNEL, client, client->getIrcNickname() + " " + channelName);
+    handle(ERR_USERNOTINCHANNEL, client, channelName);
 }
 
 void ReplyHandler::inviteOnlyChannel(Client *client, std::string const &channelName) const
 {
-    handle(ERR_INVITEONLYCHAN, client, client->getIrcNickname() + " " + channelName);
+    handle(ERR_INVITEONLYCHAN, client, channelName);
 }
 
 void ReplyHandler::badChannelKey(Client *client, const std::string &channelName) const
 {
-    handle(ERR_BADCHANNELKEY, client, client->getIrcNickname() + " " + channelName);
+    handle(ERR_BADCHANNELKEY, client, channelName);
 }
 
 void ReplyHandler::keySet(Client *client, const std::string &channelName) const
@@ -52,12 +52,12 @@ void ReplyHandler::keySet(Client *client, const std::string &channelName) const
 
 void ReplyHandler::chanOpPrivsNeeded(Client *client, const std::string &channelName) const
 {
-    handle(ERR_CHANOPRIVSNEEDED, client, client->getIrcNickname() + " " + channelName);
+    handle(ERR_CHANOPRIVSNEEDED, client, channelName);
 }
 
 void ReplyHandler::noPrivileges(Client *client) const
 {
-    handle(ERR_NOPRIVILEGES, client, client->getIrcNickname());
+    handle(ERR_NOPRIVILEGES, client);
 }
 
 void ReplyHandler::unknownMode(Client *client, char mode) const
@@ -67,37 +67,37 @@ void ReplyHandler::unknownMode(Client *client, char mode) const
 
 void ReplyHandler::unknownCommand(Client *client, const std::string &command) const
 {
-    handle(ERR_UNKNOWN_COMMAND, client, client->getIrcNickname() + " "  + command);
+    handle(ERR_UNKNOWN_COMMAND, client, command);
 }
 
 void ReplyHandler::needMoreParams(Client *client, const std::string &command) const
 {
-    handle(ERR_NEEDMOREPARAMS, client, client->getIrcNickname() + " " + command);
+    handle(ERR_NEEDMOREPARAMS, client, command);
 }
 
 void ReplyHandler::notRegistered(Client *client) const
 {
-    handle(ERR_NOTREGISTERED, client, client->getIrcNickname());
+    handle(ERR_NOTREGISTERED, client);
 }
 
 void ReplyHandler::alreadyRegistered(Client *client) const
 {
-    handle(ERR_ALREADYREGISTERED, client, client->getIrcNickname());
+    handle(ERR_ALREADYREGISTERED, client);
 }
 
 void ReplyHandler::passwdMismatch(Client *client) const
 {
-    handle(ERR_PASSWDMISMATCH, client, client->getIrcNickname());
+    handle(ERR_PASSWDMISMATCH, client);
 }
 
 void ReplyHandler::welcome(Client *client) const
 {
-    handle(RPL_WELCOME, client, client->getIrcNickname());
+    handle(RPL_WELCOME, client);
 }
 
 void ReplyHandler::channelModeIs(Client *client, const std::string &channelName, const std::string &modes) const
 {
-    handle(RPL_CHANNELMODEIS, client, client->getIrcNickname() + " " + channelName + " " + modes);
+    handle(RPL_CHANNELMODEIS, client, channelName + " " + modes);
 }
 
 void ReplyHandler::inviting(Client *inviter, Client *invitee, const std::string &channelName) const
@@ -107,22 +107,22 @@ void ReplyHandler::inviting(Client *inviter, Client *invitee, const std::string 
     // ! Not sure about username
 
 	// :server 341 <inviter> <invitee> <channel>
-    handle(RPL_INVITING, inviter, inviter->getNickname() + " " + invitee->getNickname() + " " + channelName);
+    handle(RPL_INVITING, inviter, invitee->getNickname() + " " + channelName);
 }
 
 void ReplyHandler::nameReply(Client *client, const std::string &channelName, const std::string &names) const
 {
-    handle(RPL_NAMREPLY, client, client->getNickname() + " = " + channelName);
+    handle(RPL_NAMREPLY, client, channelName);
 }
 
 void ReplyHandler::endOfNames(Client *client, const std::string &channelName) const
 {
-    handle(RPL_NAMREPLY, client, client->getNickname() + " " + channelName);
+    handle(RPL_NAMREPLY, client, channelName);
 }
 
 void ReplyHandler::channelIsFull(Client *client, std::string const &channelName) const
 {
-    handle(ERR_CHANNELISFULL, client, client->getIrcNickname() + " " + channelName);
+    handle(ERR_CHANNELISFULL, client, channelName);
 }
 
 // Errors are divided into two types: the ones which disconnect the client 

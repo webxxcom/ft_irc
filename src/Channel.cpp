@@ -65,7 +65,9 @@ void Channel::removeMode(unsigned int mode)
 	_modes._modes &= ~mode;
 
 	if (mode == E_CHANNEL_KEY)
-		_modes._key = "";
+		_modes._key.clear();
+	else if (mode == E_USER_LIMIT)
+		_modes._userLimit = 0;
 }
 
 void Channel::addMember(Client *user) { _members.insert(user); }
@@ -79,6 +81,11 @@ void Channel::addOperator(Client *user)
 void Channel::removeMember(Client *cl)
 {
 	_members.erase(cl);
+	_operators.erase(cl);
+}
+
+void Channel::removeOperator(Client *cl)
+{
 	_operators.erase(cl);
 }
 

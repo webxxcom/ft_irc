@@ -66,7 +66,7 @@ public:
     void setRealname(std::string const& username);
     void getsInvitedTo(Channel *ch);
     
-    std::vector<std::string> getInMsg(void);
+    std::vector<std::string> &getInMsg(void);
     void addtoBuffer(std::string msg);
 
     void receiveMsg(std::string const& msg);

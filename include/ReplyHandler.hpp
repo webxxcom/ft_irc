@@ -47,6 +47,6 @@ public:
     void endOfNames(Client* client, const std::string& channelName) const;
 
 private:
-    void handle(irc::ServerNotifyCodes code, Client *client, std::string const& extra) const;
+    void handle(irc::ServerNotifyCodes code, Client *client, std::string const& extra = "") const;
 
 };

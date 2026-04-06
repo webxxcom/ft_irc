@@ -54,6 +54,7 @@ public:
 	void addMember(Client *cl);
 	void addOperator(Client *cl);
 	void removeMember(Client *cl);
+	void removeOperator(Client *cl);
 	void makeInviteOnly();
 	void makeTopicRestricted();
 	void makeUserLimit(size_t l);

@@ -86,7 +86,7 @@ void Client::setNickname(std::string const& nickname)
     _state.has_nick = true;
 }
 
-std::vector<std::string> Client::getInMsg(void) {
+std::vector<std::string> &Client::getInMsg(void) {
     return this->_inMsg;
 }
 
