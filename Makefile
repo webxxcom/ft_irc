@@ -9,7 +9,7 @@ INC_DIR  := include
 # Files 
 SRCS     := $(SRC_DIR)/test.cpp		\
 			$(SRC_DIR)/Server.cpp	$(SRC_DIR)/Exceptions.cpp $(SRC_DIR)/CommandHandler.cpp \
-			$(SRC_DIR)/Client.cpp	$(SRC_DIR)/Channel.cpp
+			$(SRC_DIR)/Client.cpp	$(SRC_DIR)/Channel.cpp $(SRC_DIR)/ReplyHandler.cpp
 OBJS     := $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SRCS))
 NAME     := irc
 

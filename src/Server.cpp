@@ -28,7 +28,7 @@ int Server::parseArgs(int ac, char *av[])
     return OK;
 }
 
-Server::Server(int ac, char *av[]) : _serverSocketfd(-1), _commandHandler(*this) {
+Server::Server(int ac, char *av[]) : _serverSocketfd(-1), _commandHandler(*this, _replyHandler) {
     int status = this->parseArgs(ac, av);
     if (status == ARGS_NUM_INVALID)
         throw ServerErrorException("Arguments invalid\nRun with: ./irc <port> <password>");
@@ -135,7 +135,7 @@ void Server::receiveClientData(Client *client)
 
         // Client expects message `001' about successfull connection
         if (client->isRegistered())
-            client->receiveMsg(irc::RPL_WELCOME);
+            _replyHandler.welcome(client);
     }
     else
     {

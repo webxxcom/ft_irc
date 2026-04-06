@@ -27,6 +27,7 @@ private:
     std::string                     _buffer;
     std::vector<std::string>        _outMsg; // changed vector to stack to efficiently pop the elems
     std::vector<std::string>        _inMsg;
+    std::vector<Channel *>          _invitedTo;
 public:
 
     struct NickEquals {
@@ -56,17 +57,18 @@ public:
     std::string getFullUserPrefix() const;
     bool isRegistered() const;
     bool hasNickname() const;
+    bool isInvitedTo(Channel *ch) const;
 
     // Setters
     void setNickname(std::string const& nickname);
     void setPassword(std::string const& password);
     void setUsername(std::string const& username);
     void setRealname(std::string const& username);
+    void getsInvitedTo(Channel *ch);
     
     std::vector<std::string> getInMsg(void);
     void addtoBuffer(std::string msg);
 
-    void receiveMsg(irc::ServerNotifyCodes error_code, std::string const& extra = "");
     void receiveMsg(std::string const& msg);
 
     friend class Tester;

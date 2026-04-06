@@ -18,7 +18,7 @@ void CommandHandler::setupCommands()
 	_commandMap["PRIVMSG"]  = &CommandHandler::handlePrivmsg;
 }
 
-CommandHandler::CommandHandler(Server& server) : _server(server)
+CommandHandler::CommandHandler(Server& server, ReplyHandler &rh) : _server(server), _replyHandler(rh)
 {
 	setupCommands();
 }
@@ -44,7 +44,7 @@ void CommandHandler::handle(Client *cl)
 		if (it != _commandMap.end())
 			(this->*(it->second))(cl, line);
 		else
-			cl->receiveMsg(ERR_UNKNOWN_COMMAND, command);
+			_replyHandler.unknownCommand(cl, command);
 	}
 }
 
@@ -52,13 +52,11 @@ void CommandHandler::handlePass(Client *client, std::stringstream &command)
 {
 	std::string word;
 
-	// Client sent the password they used to connect to the server
 	std::getline(command, word, ' ');
 	if (word != _server._password)
-		// The passwords do not match -- send the message it's incorrect
-		client->receiveMsg(ERR_PASSWDMISMATCH);
+		_replyHandler.passwdMismatch(client);
 	else
-		client->setPassword(word); // set password if correct
+		client->setPassword(word);
 }
 
 void CommandHandler::handleUser(Client *client, std::stringstream& command)
@@ -95,7 +93,7 @@ void CommandHandler::handleCap(Client *client, std::stringstream& command)
 	if (word == "LS")
 		client->receiveMsg(":server CAP * LS :\r\n"); // No capabilities
 	else // Do not support any other than LS
-		client->receiveMsg(ERR_UNKNOWN_COMMAND, word);
+		_replyHandler.unknownCommand(client, word);
 }
 
 // JOIN <channels> [<keys>]
@@ -112,7 +110,7 @@ void CommandHandler::handleJoin(Client *client, std::stringstream &command)
 		std::getline(channelList, channel, ',');
 		if (channel[0] != '#' || channel.size() < 2)
 		{
-			client->receiveMsg(ERR_NOSUCHCHANNEL, client->getIrcNickname() + " " + channel);
+			_replyHandler.noSuchChannel(client, channel);
 			continue;
 		}
 
@@ -121,22 +119,22 @@ void CommandHandler::handleJoin(Client *client, std::stringstream &command)
 			ch = _server.createChannel(client, channel);
 		else
 		{
-			if (ch->getModes() & Channel::E_INVITE_ONLY)
-				return client->receiveMsg(ERR_INVITEONLYCHAN, client->getIrcNickname() + " " + channel);
+			if ((ch->getModes() & Channel::E_INVITE_ONLY) && !client->isInvitedTo(ch))
+				return _replyHandler.inviteOnlyChannel(client, channel);
 			if ((ch->getModes() & Channel::E_USER_LIMIT) && ch->getMembers().size() >= ch->getUserLimit())
-				return client->receiveMsg(ERR_CHANNELISFULL, client->getIrcNickname() + " " + channel);
+				return _replyHandler.channelIsFull(client, channel);
 
 			// ! IMPLEMENT KEY
 			//if (ch->getKey() != key)
-			//	return client->receiveMsg(ERR_BADCHANNELKEY, client->getIrcNickname() + " " + channel);
+			//	return _replyHandler.badChannelKey(client, channel);
 		}
 		
 		std::string msg = 
 			":" + client->getFullUserPrefix() + " JOIN " + ":" + channel;
 		ch->broadcast(msg);
 		ch->addMember(client);
-		client->receiveMsg(RPL_NAMREPLY, client->getNickname() + " = " + channel);
-		client->receiveMsg(RPL_ENDOFNAMES, client->getNickname() + " " + channel);
+		_replyHandler.nameReply(client, channel, "NAMES"); // !
+		_replyHandler.endOfNames(client, channel);
 	}
 }
 
@@ -156,16 +154,16 @@ void CommandHandler::handleKick(Client *client, std::stringstream &command)
 		return ;
 	Channel * ch = _server._channelsByName.find(channel);
 	if (!ch)
-		return client->receiveMsg(ERR_NOSUCHCHANNEL, channel);
+		return _replyHandler.noSuchChannel(client, channel);
 
 	if (!ch->hasMember(client))
-		return client->receiveMsg(ERR_NOTONCHANNEL,  client->getIrcNickname() + " " + channel);
+		return _replyHandler.notOnChannel(client, channel);
 	if (!ch->hasOperator(client))
-		return client->receiveMsg(ERR_CHANOPRIVSNEEDED, client->getNickname() + channel);
+		return _replyHandler.chanOpPrivsNeeded(client, channel);
 		
 	Client *target = ch->hasMember(member);
 	if (!target)
-		return client->receiveMsg(ERR_USERNOTINCHANNEL, member + " " + channel);
+		return _replyHandler.userNotInChannel(client, member, channel);
 
 	// :<source> KICK <channel> <target> :<reason>
 	std::string msg = 
@@ -189,22 +187,19 @@ void CommandHandler::handleInvite(Client *client, std::stringstream &command)
 
 	Channel * ch = _server._channelsByName.find(channel);
 	if (!ch)
-		return client->receiveMsg(ERR_NOSUCHCHANNEL, channel);
+		return _replyHandler.noSuchChannel(client, channel);
 
 	if (!ch->hasMember(client))
-		return client->receiveMsg(ERR_NOTONCHANNEL, client->getIrcNickname() + " " + channel);
+		return _replyHandler.notOnChannel(client, channel);
 	if ((ch->getModes() & Channel::E_INVITE_ONLY) && !ch->hasOperator(client))
-		return client->receiveMsg(ERR_CHANOPRIVSNEEDED, client->getIrcNickname() + " " + channel);
+		return _replyHandler.chanOpPrivsNeeded(client, channel);
 
 	Client *invitee = _server._clientsByName.find(nickname);
 	if (!invitee)
-		return client->receiveMsg(ERR_NOSUCHNICK);
+		return _replyHandler.noSuchNick(client, nickname);
 
-	// :<inviter>!<user>@<host> INVITE <invitee> :<channel>
-	invitee->receiveMsg(client->getFullUserPrefix() + " INVITE " + invitee->getNickname() + ":" + channel); // ! Not sure about username
-
-	// :server 341 <inviter> <invitee> <channel>
-	client->receiveMsg(RPL_INVITING, client->getNickname() + " " + invitee->getNickname() + " " + channel);
+	_replyHandler.inviting(client, invitee, channel);
+	invitee->getsInvitedTo(ch);
 }
 
 void CommandHandler::handleTopic(Client *client, std::stringstream &command)
@@ -237,18 +232,18 @@ void CommandHandler::handleMode(Client *client, std::stringstream &command)
 	{
 		Channel *ch = _server._channelsByName.find(first);
 		if (!ch)
-			return client->receiveMsg(ERR_NOSUCHCHANNEL, client->getIrcNickname() + " " + first);
+			return _replyHandler.noSuchChannel(client, first);
 
 		if (!ch->hasMember(client))
-			return client->receiveMsg(ERR_NOTONCHANNEL, client->getIrcNickname() + " " + first);
+			return _replyHandler.notOnChannel(client, first);
 			
 		if (!flags.empty())
 		{
 			if (!ch->hasOperator(client))
-				return client->receiveMsg(ERR_CHANOPRIVSNEEDED, client->getIrcNickname() + " " + first);
+				return _replyHandler.chanOpPrivsNeeded(client, first);
 
 			if (flags[0] != '+' && flags[0] != '-')
-				return client->receiveMsg(ERR_NEEDMOREPARAMS, client->getIrcNickname() + " MODE");
+				return _replyHandler.needMoreParams(client, "MODE");
 
 			for (size_t i = 1; i < flags.size(); ++i)
 			{
@@ -270,7 +265,7 @@ void CommandHandler::handleMode(Client *client, std::stringstream &command)
 					{
 						if (ch->getModes() & Channel::E_CHANNEL_KEY)
 						{
-							client->receiveMsg(ERR_KEYSET, "BLUH"); // ! provide extra
+							_replyHandler.keySet(client, ch->getName()); 
 							break;
 						}
 						std::getline(command, param, ' ');
@@ -294,12 +289,12 @@ void CommandHandler::handleMode(Client *client, std::stringstream &command)
 						break;
 					}
 					default:
-						client->receiveMsg(ERR_UNKNOWNMODE, "" + flags[i]);
+						_replyHandler.unknownMode(client, flags[i]);
 				}
 			}
 		}
 		else
-			client->receiveMsg(RPL_CHANNELMODEIS, client->getUsername() + " " + first + " " + ch->getIrcModes());
+			_replyHandler.channelModeIs(client, first, ch->getIrcModes());
 	}
 	else
 	{
@@ -319,13 +314,13 @@ Client *CommandHandler::clientLooksFor(Client *client, std::string const &nick, 
 	Client * target = _server._clientsByName.find(nick);
 	if (!target)
 	{
-		client->receiveMsg(ERR_NOSUCHNICK, client->getIrcNickname() + " " + nick);
+		_replyHandler.noSuchNick(client, nick);
 		return NULL;
 	}
 	
 	if (ch && !ch->hasMember(target))
 	{
-		client->receiveMsg(ERR_NOTONCHANNEL, client->getIrcNickname() + " " + ch->getName());
+		_replyHandler.notOnChannel(client, ch->getName());
 		return NULL;
 	}
     return target;

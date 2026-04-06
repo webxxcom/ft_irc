@@ -10,6 +10,7 @@
 #include "Channel.hpp"
 #include "Exceptions.hpp"
 #include "ServerNotifyCodes.hpp"
+#include "ReplyHandler.hpp"
 
 extern volatile sig_atomic_t g_serverRunning; // ! maybe move to Server class
 
@@ -24,6 +25,7 @@ class Server {
 
 		friend class CommandHandler;
 		CommandHandler 							_commandHandler;
+		ReplyHandler							_replyHandler;
 		std::string     			            _password;
 		int             			            _port;
 		int           				            _serverSocketfd;

@@ -6,10 +6,11 @@
 class Server;
 class Client;
 class Channel;
+class ReplyHandler;
 
 class CommandHandler {
 public:
-	CommandHandler(Server &server);
+	CommandHandler(Server &server, ReplyHandler& rh);
 
 	void handle(Client *cl);
 
@@ -18,6 +19,7 @@ private:
 
 	std::map<std::string, CommandFn>	_commandMap;
 	Server& 							_server;
+	ReplyHandler& 						_replyHandler;
 
 	void setupCommands();
 	void handlePass(Client* client, std::stringstream& command);

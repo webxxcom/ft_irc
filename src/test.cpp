@@ -55,7 +55,8 @@ void testCorrectPassword()
 
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(&cl);
         assert(!cl.isRegistered());
     }
@@ -81,7 +82,8 @@ void testIncorrectPassword()
 
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(&cl);
         assert(false);
     }
@@ -110,7 +112,8 @@ void testFullRegistration()
 
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(&cl);
         assert(cl.isRegistered());
     }
@@ -139,7 +142,8 @@ void testJoinChannel()
 
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(&cl);
 
         Channel* chRes = ser.getChannelsByName().find("#chat");
@@ -171,7 +175,8 @@ void testCreateBadChannel()
 
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(&cl);
 
         Channel* chRes = ser.getChannelsByName().find("#");
@@ -204,7 +209,8 @@ void testJoinMultipleChannels()
 
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(&cl);
 
         Channel* ch1 = ser.getChannelsByName().find("#chan1");
@@ -243,7 +249,8 @@ void testJoinWithChannelKey()
     user.addtoBuffer("PASS a\r\nNICK user\r\nUSER user 0 * :real\r\n");
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(&op); // Registers op, creates channel, sets key
         
         // User tries to join without key
@@ -284,7 +291,8 @@ void testJoinInvalidChannel()
 
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(&cl);
         assert(ser.getChannels().empty());
         assert(cl.getInMsg().size() == 1);
@@ -316,7 +324,8 @@ void testInviteOnlyAndInviteCommand()
 
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         
         ch.handle(user); 
         
@@ -365,7 +374,8 @@ void testModeOperatorStatus()
 
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         
         // Register both
         ch.handle(op);
@@ -414,7 +424,8 @@ void testModeRevokeOperator()
     user->addtoBuffer("PASS a\r\nNICK target\r\nUSER target 0 * :target\r\n");
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(op);
         ch.handle(user);
 
@@ -459,7 +470,8 @@ void testModeNonOpCannotGrantOp()
     target->addtoBuffer("PASS a\r\nNICK target\r\nUSER target 0 * :target\r\n");
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(op);
         ch.handle(regular);
         ch.handle(target);
@@ -499,7 +511,8 @@ void testModeSetInviteOnly()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -533,7 +546,8 @@ void testModeUnsetInviteOnly()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -569,7 +583,8 @@ void testModeSetTopicRestricted()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -605,7 +620,8 @@ void testModeNonOpCannotSetTopic()
     regular->addtoBuffer("PASS a\r\nNICK reg\r\nUSER reg 0 * :reg\r\n");
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(op);
         ch.handle(regular);
 
@@ -641,7 +657,8 @@ void testModeSetChannelKey()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -674,7 +691,8 @@ void testModeRemoveChannelKey()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -710,7 +728,8 @@ void testModeSetUserLimit()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -743,7 +762,8 @@ void testModeRemoveUserLimit()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -784,7 +804,8 @@ void testInviteUserToInviteOnlyChannel()
     guest->addtoBuffer("PASS a\r\nNICK guest\r\nUSER guest 0 * :guest\r\n");
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(op);
         ch.handle(guest);
 
@@ -828,7 +849,8 @@ void testUninvitedUserCannotJoinInviteOnlyChannel()
     stranger->addtoBuffer("PASS a\r\nNICK stranger\r\nUSER stranger 0 * :stranger\r\n");
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(op);
         ch.handle(stranger);
 
@@ -871,7 +893,8 @@ void testNonOpCannotInvite()
     target->addtoBuffer("PASS a\r\nNICK target\r\nUSER target 0 * :target\r\n");
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(op);
         ch.handle(regular);
         ch.handle(target);
@@ -921,7 +944,8 @@ void testInviteToNonExistentChannel()
     guest->addtoBuffer("PASS a\r\nNICK guest\r\nUSER guest 0 * :guest\r\n");
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(op);
         ch.handle(guest);
 
@@ -956,7 +980,8 @@ void testInviteNonExistentUser()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -999,7 +1024,8 @@ void testJoinWithCorrectKey()
     user->addtoBuffer("PASS a\r\nNICK user\r\nUSER user 0 * :user\r\n");
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(op);
         ch.handle(user);
 
@@ -1038,7 +1064,8 @@ void testJoinWithWrongKey()
     user->addtoBuffer("PASS a\r\nNICK user\r\nUSER user 0 * :user\r\n");
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(op);
         ch.handle(user);
 
@@ -1077,7 +1104,8 @@ void testJoinChannelAtUserLimit()
     extra->addtoBuffer("PASS a\r\nNICK extra\r\nUSER extra 0 * :extra\r\n");
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(op);
         ch.handle(extra);
 
@@ -1114,7 +1142,8 @@ void testJoinAlreadyInChannel()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -1153,7 +1182,8 @@ void testFirstJoinerBecomesOperator()
     second->addtoBuffer("PASS a\r\nNICK second\r\nUSER second 0 * :second\r\n");
     try
     {
-        CommandHandler ch(ser);
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
         ch.handle(first);
         ch.handle(second);
 
@@ -1192,8 +1222,8 @@ int main()
     testJoinMultipleChannels();
     //testJoinWithChannelKey(); // ! implement the keys to channels
     testModeOperatorStatus();
-    testModeRevokeOperator();
-    //testInviteOnlyAndInviteCommand(); // ! need to store if a user was invited 
+    //testModeRevokeOperator();
+    testInviteOnlyAndInviteCommand(); // ! need to store if a user was invited 
     
     std::cout.rdbuf(oldCoutBuffer);
     std::cout << "All tests finished" << std::endl;
