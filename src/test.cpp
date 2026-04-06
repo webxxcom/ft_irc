@@ -407,6 +407,7 @@ void testModeOperatorStatus()
     }
 }
 
+#pragma region MODE
 
 // ===== MODE TESTS =====
 
@@ -789,6 +790,10 @@ void testModeRemoveUserLimit()
     }
 }
 
+#pragma endregion
+
+#pragma region INVITE
+
 // ===== INVITE TESTS =====
 
 void testInviteUserToInviteOnlyChannel()
@@ -1009,6 +1014,10 @@ void testInviteNonExistentUser()
     }
 }
 
+#pragma endregion
+
+#pragma region JOIN
+
 // ===== JOIN EDGE CASE TESTS =====
 
 void testJoinWithCorrectKey()
@@ -1206,6 +1215,1951 @@ void testFirstJoinerBecomesOperator()
         assert(false);
     }
 }
+#pragma endregion
+
+// ===== HELPER MACRO =====
+// Checks if a specific message exists in a client's incoming message buffer
+#define ASSERT_HAS_MSG(client, msg) \
+    assert(std::find((client)->getInMsg().begin(), (client)->getInMsg().end(), (msg)) != (client)->getInMsg().end())
+
+#define ASSERT_NO_MSG(client, msg) \
+    assert(std::find((client)->getInMsg().begin(), (client)->getInMsg().end(), (msg)) == (client)->getInMsg().end())
+
+// ===== MODE TESTS =====
+
+void testModeGrantOpReply()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op   = new Client(10);
+    Client *user = new Client(11);
+    Tester::addClient(ser, op);
+    Tester::addClient(ser, user);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    user->addtoBuffer("PASS a\r\nNICK target\r\nUSER target 0 * :target\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+        ch.handle(user);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+        user->addtoBuffer("JOIN #room\r\n");
+        ch.handle(user);
+
+        op->addtoBuffer("MODE #room +o target\r\n");
+        ch.handle(op);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(chan != NULL);
+        assert(chan->hasOperator(user));
+        // Channel members should see the MODE broadcast
+        ASSERT_HAS_MSG(op,   ":op!op@server MODE #room +o target\r\n");
+        ASSERT_HAS_MSG(user, ":op!op@server MODE #room +o target\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeRevokeOpReply()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op   = new Client(10);
+    Client *user = new Client(11);
+    Tester::addClient(ser, op);
+    Tester::addClient(ser, user);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    user->addtoBuffer("PASS a\r\nNICK target\r\nUSER target 0 * :target\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+        ch.handle(user);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+        user->addtoBuffer("JOIN #room\r\n");
+        ch.handle(user);
+
+        op->addtoBuffer("MODE #room +o target\r\n");
+        ch.handle(op);
+        assert(ser.getChannelsByName().find("#room")->hasOperator(user));
+
+        op->addtoBuffer("MODE #room -o target\r\n");
+        ch.handle(op);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(!chan->hasOperator(user));
+        ASSERT_HAS_MSG(op,   ":op!op@server MODE #room -o target\r\n");
+        ASSERT_HAS_MSG(user, ":op!op@server MODE #room -o target\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeSetInviteOnlyReply()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op = new Client(10);
+    Tester::addClient(ser, op);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+
+        op->addtoBuffer("MODE #room +i\r\n");
+        ch.handle(op);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(chan != NULL);
+        assert(chan->isInviteOnly());
+        ASSERT_HAS_MSG(op, ":op!op@server MODE #room +i\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeUnsetInviteOnlyReply()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op = new Client(10);
+    Tester::addClient(ser, op);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+        op->addtoBuffer("MODE #room +i\r\n");
+        ch.handle(op);
+        op->addtoBuffer("MODE #room -i\r\n");
+        ch.handle(op);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(!chan->isInviteOnly());
+        ASSERT_HAS_MSG(op, ":op!op@server MODE #room -i\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeNonOpCannotSetInviteOnly()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op  = new Client(10);
+    Client *reg = new Client(11);
+    Tester::addClient(ser, op);
+    Tester::addClient(ser, reg);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    reg->addtoBuffer("PASS a\r\nNICK reg\r\nUSER reg 0 * :reg\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+        ch.handle(reg);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+        reg->addtoBuffer("JOIN #room\r\n");
+        ch.handle(reg);
+
+        reg->addtoBuffer("MODE #room +i\r\n");
+        ch.handle(reg);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(!chan->isInviteOnly());
+        ASSERT_HAS_MSG(reg, ":server 482 reg #room :You're not channel operator\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeSetTopicRestrictedReply()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op = new Client(10);
+    Tester::addClient(ser, op);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+        op->addtoBuffer("MODE #room +t\r\n");
+        ch.handle(op);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(chan->isTopicRestricted());
+        ASSERT_HAS_MSG(op, ":op!op@server MODE #room +t\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeNonOpCannotSetTopicRestricted()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op  = new Client(10);
+    Client *reg = new Client(11);
+    Tester::addClient(ser, op);
+    Tester::addClient(ser, reg);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    reg->addtoBuffer("PASS a\r\nNICK reg\r\nUSER reg 0 * :reg\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+        ch.handle(reg);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+        reg->addtoBuffer("JOIN #room\r\n");
+        ch.handle(reg);
+
+        reg->addtoBuffer("MODE #room +t\r\n");
+        ch.handle(reg);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(!chan->isTopicRestricted());
+        ASSERT_HAS_MSG(reg, ":server 482 reg #room :You're not channel operator\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeSetKeyReply()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op = new Client(10);
+    Tester::addClient(ser, op);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+        op->addtoBuffer("MODE #room +k secret\r\n");
+        ch.handle(op);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(chan->getKey() == "secret");
+        ASSERT_HAS_MSG(op, ":op!op@server MODE #room +k secret\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeRemoveKeyReply()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op = new Client(10);
+    Tester::addClient(ser, op);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+        op->addtoBuffer("MODE #room +k secret\r\n");
+        ch.handle(op);
+        op->addtoBuffer("MODE #room -k secret\r\n");
+        ch.handle(op);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(chan->getKey().empty());
+        ASSERT_HAS_MSG(op, ":op!op@server MODE #room -k secret\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeSetUserLimitReply()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op = new Client(10);
+    Tester::addClient(ser, op);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+        op->addtoBuffer("MODE #room +l 5\r\n");
+        ch.handle(op);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(chan->getUserLimit() == 5);
+        ASSERT_HAS_MSG(op, ":op!op@server MODE #room +l 5\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeRemoveUserLimitReply()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op = new Client(10);
+    Tester::addClient(ser, op);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+        op->addtoBuffer("MODE #room +l 5\r\n");
+        ch.handle(op);
+        op->addtoBuffer("MODE #room -l\r\n");
+        ch.handle(op);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(chan->getUserLimit() == 0);
+        ASSERT_HAS_MSG(op, ":op!op@server MODE #room -l\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeOnNonExistentChannel()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op = new Client(10);
+    Tester::addClient(ser, op);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+
+        op->addtoBuffer("MODE #ghost +i\r\n");
+        ch.handle(op);
+
+        assert(ser.getChannelsByName().find("#ghost") == NULL);
+        // ERR_NOSUCHCHANNEL 403
+        ASSERT_HAS_MSG(op, ":server 403 op #ghost :No such channel\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeNotInChannel()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op      = new Client(10);
+    Client *outside = new Client(11);
+    Tester::addClient(ser, op);
+    Tester::addClient(ser, outside);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    outside->addtoBuffer("PASS a\r\nNICK out\r\nUSER out 0 * :out\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+        ch.handle(outside);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+
+        // outside is not in #room but tries to set a mode
+        outside->addtoBuffer("MODE #room +i\r\n");
+        ch.handle(outside);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(!chan->isInviteOnly());
+        // ERR_NOTONCHANNEL 442
+        ASSERT_HAS_MSG(outside, ":server 442 out #room :You're not on that channel\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeGrantOpNoParamError()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op = new Client(10);
+    Tester::addClient(ser, op);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+
+        // +o with no nick argument
+        op->addtoBuffer("MODE #room +o\r\n");
+        ch.handle(op);
+
+        // ERR_NEEDMOREPARAMS 461
+        ASSERT_HAS_MSG(op, ":server 461 op MODE :Not enough parameters\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeGrantOpNonExistentNickError()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op = new Client(10);
+    Tester::addClient(ser, op);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+
+        // +o with a nick that does not exist on the server
+        op->addtoBuffer("MODE #room +o ghost\r\n");
+        ch.handle(op);
+
+        // ERR_NOSUCHNICK 401
+        ASSERT_HAS_MSG(op, ":server 401 op ghost :No such nick/channel\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeGrantOpUserNotInChannelError()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op      = new Client(10);
+    Client *outside = new Client(11);
+    Tester::addClient(ser, op);
+    Tester::addClient(ser, outside);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    outside->addtoBuffer("PASS a\r\nNICK out\r\nUSER out 0 * :out\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+        ch.handle(outside);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+
+        // 'out' exists on server but is NOT in #room
+        op->addtoBuffer("MODE #room +o out\r\n");
+        ch.handle(op);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(!chan->hasOperator(outside));
+        // ERR_USERNOTINCHANNEL 441
+        ASSERT_HAS_MSG(op, ":server 441 op out #room :They aren't on that channel\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeGrantOpAlreadyOpIsIdempotent()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op   = new Client(10);
+    Client *user = new Client(11);
+    Tester::addClient(ser, op);
+    Tester::addClient(ser, user);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    user->addtoBuffer("PASS a\r\nNICK user\r\nUSER user 0 * :user\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+        ch.handle(user);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+        user->addtoBuffer("JOIN #room\r\n");
+        ch.handle(user);
+
+        op->addtoBuffer("MODE #room +o user\r\n");
+        ch.handle(op);
+        assert(ser.getChannelsByName().find("#room")->hasOperator(user));
+
+        // Grant op again — must not crash or duplicate
+        op->addtoBuffer("MODE #room +o user\r\n");
+        ch.handle(op);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(chan->hasOperator(user));
+        assert(chan->getMembers().size() == 2);
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeRevokeOpNotOpIsIdempotent()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op   = new Client(10);
+    Client *user = new Client(11);
+    Tester::addClient(ser, op);
+    Tester::addClient(ser, user);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    user->addtoBuffer("PASS a\r\nNICK user\r\nUSER user 0 * :user\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+        ch.handle(user);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+        user->addtoBuffer("JOIN #room\r\n");
+        ch.handle(user);
+
+        // user was never op — -o should not crash
+        op->addtoBuffer("MODE #room -o user\r\n");
+        ch.handle(op);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(!chan->hasOperator(user));
+        assert(chan->getMembers().size() == 2);
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeRevokeOpNoParamError()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op = new Client(10);
+    Tester::addClient(ser, op);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+
+        op->addtoBuffer("MODE #room -o\r\n");
+        ch.handle(op);
+
+        ASSERT_HAS_MSG(op, ":server 461 op MODE :Not enough parameters\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeSetKeyNoParamError()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op = new Client(10);
+    Tester::addClient(ser, op);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+
+        // +k with no key argument
+        op->addtoBuffer("MODE #room +k\r\n");
+        ch.handle(op);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(chan->getKey().empty());
+        ASSERT_HAS_MSG(op, ":server 461 op MODE :Not enough parameters\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeSetKeyWhenKeyAlreadySetError()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op = new Client(10);
+    Tester::addClient(ser, op);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+        op->addtoBuffer("MODE #room +k first\r\n");
+        ch.handle(op);
+
+        // Try to overwrite existing key
+        op->addtoBuffer("MODE #room +k second\r\n");
+        ch.handle(op);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        // ERR_KEYSET 467 — key already set
+        ASSERT_HAS_MSG(op, ":server 467 op #room :Channel key already set\r\n");
+        assert(chan->getKey() == "first");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeNonOpCannotSetKey()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op  = new Client(10);
+    Client *reg = new Client(11);
+    Tester::addClient(ser, op);
+    Tester::addClient(ser, reg);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    reg->addtoBuffer("PASS a\r\nNICK reg\r\nUSER reg 0 * :reg\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+        ch.handle(reg);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+        reg->addtoBuffer("JOIN #room\r\n");
+        ch.handle(reg);
+
+        reg->addtoBuffer("MODE #room +k secret\r\n");
+        ch.handle(reg);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(chan->getKey().empty());
+        ASSERT_HAS_MSG(reg, ":server 482 reg #room :You're not channel operator\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeSetLimitNoParamError()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op = new Client(10);
+    Tester::addClient(ser, op);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+
+        // +l with no number argument
+        op->addtoBuffer("MODE #room +l\r\n");
+        ch.handle(op);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(chan->getUserLimit() == 0);
+        ASSERT_HAS_MSG(op, ":server 461 op MODE :Not enough parameters\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeSetLimitZeroError()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op = new Client(10);
+    Tester::addClient(ser, op);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+
+        // +l 0 is nonsensical — should be rejected
+        op->addtoBuffer("MODE #room +l 0\r\n");
+        ch.handle(op);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(chan->getUserLimit() == 0);
+        ASSERT_HAS_MSG(op, ":server 461 op MODE :Not enough parameters\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeSetLimitNonNumericError()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op = new Client(10);
+    Tester::addClient(ser, op);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+
+        // +l with a non-numeric argument
+        op->addtoBuffer("MODE #room +l abc\r\n");
+        ch.handle(op);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(chan->getUserLimit() == 0);
+        ASSERT_HAS_MSG(op, ":server 461 op MODE :Not enough parameters\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeNonOpCannotSetLimit()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op  = new Client(10);
+    Client *reg = new Client(11);
+    Tester::addClient(ser, op);
+    Tester::addClient(ser, reg);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    reg->addtoBuffer("PASS a\r\nNICK reg\r\nUSER reg 0 * :reg\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+        ch.handle(reg);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+        reg->addtoBuffer("JOIN #room\r\n");
+        ch.handle(reg);
+
+        reg->addtoBuffer("MODE #room +l 5\r\n");
+        ch.handle(reg);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(chan->getUserLimit() == 0);
+        ASSERT_HAS_MSG(reg, ":server 482 reg #room :You're not channel operator\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeRemoveLimitWhenNoneSetIsIdempotent()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op = new Client(10);
+    Tester::addClient(ser, op);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+
+        // -l when no limit was ever set — should not crash
+        op->addtoBuffer("MODE #room -l\r\n");
+        ch.handle(op);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(chan->getUserLimit() == 0);
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeNonOpCannotUnsetInviteOnly()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op  = new Client(10);
+    Client *reg = new Client(11);
+    Tester::addClient(ser, op);
+    Tester::addClient(ser, reg);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    reg->addtoBuffer("PASS a\r\nNICK reg\r\nUSER reg 0 * :reg\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+        ch.handle(reg);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+        op->addtoBuffer("MODE #room +i\r\n");
+        ch.handle(op);
+
+        // Invite reg in so they can be in the channel
+        op->addtoBuffer("INVITE reg #room\r\n");
+        ch.handle(op);
+        reg->addtoBuffer("JOIN #room\r\n");
+        ch.handle(reg);
+
+        // Non-op tries to remove +i
+        reg->addtoBuffer("MODE #room -i\r\n");
+        ch.handle(reg);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(chan->isInviteOnly());
+        ASSERT_HAS_MSG(reg, ":server 482 reg #room :You're not channel operator\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeSetInviteOnlyAlreadySetIsIdempotent()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op = new Client(10);
+    Tester::addClient(ser, op);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+        op->addtoBuffer("MODE #room +i\r\n");
+        ch.handle(op);
+
+        // Set +i again — should not crash or duplicate broadcast
+        op->addtoBuffer("MODE #room +i\r\n");
+        ch.handle(op);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(chan->isInviteOnly());
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeNonOpCannotUnsetTopicRestricted()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op  = new Client(10);
+    Client *reg = new Client(11);
+    Tester::addClient(ser, op);
+    Tester::addClient(ser, reg);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    reg->addtoBuffer("PASS a\r\nNICK reg\r\nUSER reg 0 * :reg\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+        ch.handle(reg);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+        reg->addtoBuffer("JOIN #room\r\n");
+        ch.handle(reg);
+
+        op->addtoBuffer("MODE #room +t\r\n");
+        ch.handle(op);
+
+        reg->addtoBuffer("MODE #room -t\r\n");
+        ch.handle(reg);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(chan->isTopicRestricted());
+        ASSERT_HAS_MSG(reg, ":server 482 reg #room :You're not channel operator\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeUnsetTopicRestrictedReply()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op = new Client(10);
+    Tester::addClient(ser, op);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+        op->addtoBuffer("MODE #room +t\r\n");
+        ch.handle(op);
+        op->addtoBuffer("MODE #room -t\r\n");
+        ch.handle(op);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(!chan->isTopicRestricted());
+        ASSERT_HAS_MSG(op, ":op!op@server MODE #room -t\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeUnknownFlagError()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op = new Client(10);
+    Tester::addClient(ser, op);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+
+        op->addtoBuffer("MODE #room +z\r\n");
+        ch.handle(op);
+
+        // ERR_UNKNOWNMODE 472
+        ASSERT_HAS_MSG(op, ":server 472 op #room z :is unknown mode char\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeNoFlagReturnsChannelModeString()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op = new Client(10);
+    Tester::addClient(ser, op);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+        op->addtoBuffer("MODE #room +it\r\n");
+        ch.handle(op);
+
+        // Query modes with no flag
+        op->addtoBuffer("MODE #room\r\n");
+        ch.handle(op);
+
+        // RPL_CHANNELMODEIS 324
+        ASSERT_HAS_MSG(op, ":server 324 op #room +it\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeCombinedPlusItBroadcast()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op   = new Client(10);
+    Client *user = new Client(11);
+    Tester::addClient(ser, op);
+    Tester::addClient(ser, user);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    user->addtoBuffer("PASS a\r\nNICK user\r\nUSER user 0 * :user\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+        ch.handle(user);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+        user->addtoBuffer("JOIN #room\r\n");
+        ch.handle(user);
+
+        // Set +i and +t in a single MODE command
+        op->addtoBuffer("MODE #room +it\r\n");
+        ch.handle(op);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(chan->isInviteOnly());
+        assert(chan->isTopicRestricted());
+        // Both members should receive one broadcast for the combined change
+        ASSERT_HAS_MSG(op,   ":op!op@server MODE #room +it\r\n");
+        ASSERT_HAS_MSG(user, ":op!op@server MODE #room +it\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeCombinedKeyAndLimitReply()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op = new Client(10);
+    Tester::addClient(ser, op);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+
+        // Set key and limit in one command
+        op->addtoBuffer("MODE #room +kl secret 10\r\n");
+        ch.handle(op);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(chan->getKey() == "secret");
+        assert(chan->getUserLimit() == 10);
+        ASSERT_HAS_MSG(op, ":op!op@server MODE #room +kl secret 10\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeNonExistentChannelError()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op = new Client(10);
+    Tester::addClient(ser, op);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+
+        op->addtoBuffer("MODE #ghost +i\r\n");
+        ch.handle(op);
+
+        assert(ser.getChannelsByName().find("#ghost") == NULL);
+        // ERR_NOSUCHCHANNEL 403
+        ASSERT_HAS_MSG(op, ":server 403 op #ghost :No such channel\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testModeNotInChannelError()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op      = new Client(10);
+    Client *outside = new Client(11);
+    Tester::addClient(ser, op);
+    Tester::addClient(ser, outside);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    outside->addtoBuffer("PASS a\r\nNICK out\r\nUSER out 0 * :out\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+        ch.handle(outside);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+
+        outside->addtoBuffer("MODE #room +t\r\n");
+        ch.handle(outside);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(!chan->isTopicRestricted());
+        // ERR_NOTONCHANNEL 442
+        ASSERT_HAS_MSG(outside, ":server 442 out #room :You're not on that channel\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+#pragma endregion
+
+#pragma region INVITE_REPLY
+
+void testInviteReply()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op    = new Client(10);
+    Client *guest = new Client(11);
+    Tester::addClient(ser, op);
+    Tester::addClient(ser, guest);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    guest->addtoBuffer("PASS a\r\nNICK guest\r\nUSER guest 0 * :guest\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+        ch.handle(guest);
+
+        op->addtoBuffer("JOIN #vip\r\n");
+        ch.handle(op);
+
+        op->addtoBuffer("INVITE guest #vip\r\n");
+        ch.handle(op);
+
+        // RPL_INVITING 341 to the inviter
+        ASSERT_HAS_MSG(op, ":server 341 op guest #vip\r\n");
+        // INVITE notice to the target
+        ASSERT_HAS_MSG(guest, ":op!op@server INVITE guest :#vip\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testInviteAllowsJoinToInviteOnlyChannel()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op    = new Client(10);
+    Client *guest = new Client(11);
+    Tester::addClient(ser, op);
+    Tester::addClient(ser, guest);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    guest->addtoBuffer("PASS a\r\nNICK guest\r\nUSER guest 0 * :guest\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+        ch.handle(guest);
+
+        op->addtoBuffer("JOIN #vip\r\n");
+        ch.handle(op);
+        op->addtoBuffer("MODE #vip +i\r\n");
+        ch.handle(op);
+        op->addtoBuffer("INVITE guest #vip\r\n");
+        ch.handle(op);
+
+        guest->addtoBuffer("JOIN #vip\r\n");
+        ch.handle(guest);
+
+        Channel* chan = ser.getChannelsByName().find("#vip");
+        assert(chan->hasMember(guest));
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testInviteNonOpError()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op      = new Client(10);
+    Client *reg     = new Client(11);
+    Client *target  = new Client(12);
+    Tester::addClient(ser, op);
+    Tester::addClient(ser, reg);
+    Tester::addClient(ser, target);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    reg->addtoBuffer("PASS a\r\nNICK reg\r\nUSER reg 0 * :reg\r\n");
+    target->addtoBuffer("PASS a\r\nNICK target\r\nUSER target 0 * :target\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+        ch.handle(reg);
+        ch.handle(target);
+
+        op->addtoBuffer("JOIN #vip\r\n");
+        ch.handle(op);
+        op->addtoBuffer("MODE #vip +i\r\n");
+        ch.handle(op);
+
+        // Let reg in via invite, but reg is not op
+        op->addtoBuffer("INVITE reg #vip\r\n");
+        ch.handle(op);
+        reg->addtoBuffer("JOIN #vip\r\n");
+        ch.handle(reg);
+
+        // Non-op reg tries to invite target
+        reg->addtoBuffer("INVITE target #vip\r\n");
+        ch.handle(reg);
+
+        Channel* chan = ser.getChannelsByName().find("#vip");
+        assert(!chan->hasMember(target));
+        ASSERT_HAS_MSG(reg, ":server 482 reg #vip :You're not channel operator\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testInviteToNonExistentChannelError()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op    = new Client(10);
+    Client *guest = new Client(11);
+    Tester::addClient(ser, op);
+    Tester::addClient(ser, guest);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    guest->addtoBuffer("PASS a\r\nNICK guest\r\nUSER guest 0 * :guest\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+        ch.handle(guest);
+
+        op->addtoBuffer("INVITE guest #nowhere\r\n");
+        ch.handle(op);
+
+        // ERR_NOSUCHCHANNEL 403
+        ASSERT_HAS_MSG(op, ":server 403 op #nowhere :No such channel\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testInviteNonExistentUserError()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op = new Client(10);
+    Tester::addClient(ser, op);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+
+        op->addtoBuffer("INVITE ghost #room\r\n");
+        ch.handle(op);
+
+        // ERR_NOSUCHNICK 401
+        ASSERT_HAS_MSG(op, ":server 401 op ghost :No such nick/channel\r\n");
+        assert(ser.getChannelsByName().find("#room")->getMembers().size() == 1);
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testInviteUserAlreadyInChannelError()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op   = new Client(10);
+    Client *user = new Client(11);
+    Tester::addClient(ser, op);
+    Tester::addClient(ser, user);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    user->addtoBuffer("PASS a\r\nNICK user\r\nUSER user 0 * :user\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+        ch.handle(user);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+        user->addtoBuffer("JOIN #room\r\n");
+        ch.handle(user);
+
+        // Invite user who is already in the channel
+        op->addtoBuffer("INVITE user #room\r\n");
+        ch.handle(op);
+
+        // ERR_USERONCHANNEL 443
+        ASSERT_HAS_MSG(op, ":server 443 op user #room :is already on channel\r\n");
+        assert(ser.getChannelsByName().find("#room")->getMembers().size() == 2);
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testInviteNotInChannelError()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op      = new Client(10);
+    Client *outside = new Client(11);
+    Client *target  = new Client(12);
+    Tester::addClient(ser, op);
+    Tester::addClient(ser, outside);
+    Tester::addClient(ser, target);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    outside->addtoBuffer("PASS a\r\nNICK out\r\nUSER out 0 * :out\r\n");
+    target->addtoBuffer("PASS a\r\nNICK target\r\nUSER target 0 * :target\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+        ch.handle(outside);
+        ch.handle(target);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+
+        // 'out' is not in #room but tries to invite
+        outside->addtoBuffer("INVITE target #room\r\n");
+        ch.handle(outside);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(!chan->hasMember(target));
+        // ERR_NOTONCHANNEL 442
+        ASSERT_HAS_MSG(outside, ":server 442 out #room :You're not on that channel\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+#pragma endregion
+
+#pragma region JOIN_REPLY
+
+void testJoinReply()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op = new Client(10);
+    Tester::addClient(ser, op);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+
+        Channel* chan = ser.getChannelsByName().find("#room");
+        assert(chan != NULL);
+        assert(chan->hasMember(op));
+        // JOIN broadcast back to self
+        ASSERT_HAS_MSG(op, ":op!op@server JOIN #room\r\n");
+        // RPL_NAMREPLY 353
+        ASSERT_HAS_MSG(op, ":server 353 op = #room :@op\r\n");
+        // RPL_ENDOFNAMES 366
+        ASSERT_HAS_MSG(op, ":server 366 op #room :End of /NAMES list\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testJoinBroadcastToExistingMembers()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op   = new Client(10);
+    Client *user = new Client(11);
+    Tester::addClient(ser, op);
+    Tester::addClient(ser, user);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    user->addtoBuffer("PASS a\r\nNICK user\r\nUSER user 0 * :user\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+        ch.handle(user);
+
+        op->addtoBuffer("JOIN #room\r\n");
+        ch.handle(op);
+
+        user->addtoBuffer("JOIN #room\r\n");
+        ch.handle(user);
+
+        // The existing member (op) must see the newcomer's JOIN
+        ASSERT_HAS_MSG(op, ":user!user@server JOIN #room\r\n");
+        // Newcomer receives NAMREPLY listing both members
+        ASSERT_HAS_MSG(user, ":server 353 user = #room :@op user\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testJoinInviteOnlyWithoutInviteError()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op       = new Client(10);
+    Client *stranger = new Client(11);
+    Tester::addClient(ser, op);
+    Tester::addClient(ser, stranger);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    stranger->addtoBuffer("PASS a\r\nNICK str\r\nUSER str 0 * :str\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+        ch.handle(stranger);
+
+        op->addtoBuffer("JOIN #vip\r\n");
+        ch.handle(op);
+        op->addtoBuffer("MODE #vip +i\r\n");
+        ch.handle(op);
+
+        stranger->addtoBuffer("JOIN #vip\r\n");
+        ch.handle(stranger);
+
+        Channel* chan = ser.getChannelsByName().find("#vip");
+        assert(!chan->hasMember(stranger));
+        // ERR_INVITEONLYCHAN 473
+        ASSERT_HAS_MSG(stranger, ":server 473 str #vip :Cannot join channel (+i)\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testJoinWrongKeyError()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op   = new Client(10);
+    Client *user = new Client(11);
+    Tester::addClient(ser, op);
+    Tester::addClient(ser, user);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    user->addtoBuffer("PASS a\r\nNICK user\r\nUSER user 0 * :user\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+        ch.handle(user);
+
+        op->addtoBuffer("JOIN #locked\r\n");
+        ch.handle(op);
+        op->addtoBuffer("MODE #locked +k secret\r\n");
+        ch.handle(op);
+
+        user->addtoBuffer("JOIN #locked wrong\r\n");
+        ch.handle(user);
+
+        Channel* chan = ser.getChannelsByName().find("#locked");
+        assert(!chan->hasMember(user));
+        // ERR_BADCHANNELKEY 475
+        ASSERT_HAS_MSG(user, ":server 475 user #locked :Cannot join channel (+k)\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testJoinChannelFullError()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op    = new Client(10);
+    Client *extra = new Client(11);
+    Tester::addClient(ser, op);
+    Tester::addClient(ser, extra);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    extra->addtoBuffer("PASS a\r\nNICK extra\r\nUSER extra 0 * :extra\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+        ch.handle(extra);
+
+        op->addtoBuffer("JOIN #small\r\n");
+        ch.handle(op);
+        op->addtoBuffer("MODE #small +l 1\r\n");
+        ch.handle(op);
+
+        extra->addtoBuffer("JOIN #small\r\n");
+        ch.handle(extra);
+
+        Channel* chan = ser.getChannelsByName().find("#small");
+        assert(!chan->hasMember(extra));
+        // ERR_CHANNELISFULL 471
+        ASSERT_HAS_MSG(extra, ":server 471 extra #small :Cannot join channel (+l)\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testJoinBadChannelNameError()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *op = new Client(10);
+    Tester::addClient(ser, op);
+    op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(op);
+
+        op->addtoBuffer("JOIN #\r\n");
+        ch.handle(op);
+
+        assert(ser.getChannelsByName().find("#") == NULL);
+        assert(ser.getChannels().empty());
+        // ERR_BADCHANMASK 476
+        ASSERT_HAS_MSG(op, ":server 476 op # :Bad Channel Mask\r\n");
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+void testJoinWithoutRegistrationError()
+{
+    std::string password = "a";
+    char *argv[] = {
+        const_cast<char*>("./irc"),
+        const_cast<char*>(port.c_str()),
+        const_cast<char*>(password.c_str())
+    };
+    Server ser(3, argv);
+    Client *cl = new Client(10);
+    Tester::addClient(ser, cl);
+    // Deliberately skip PASS/NICK/USER
+    cl->addtoBuffer("JOIN #room\r\n");
+    try
+    {
+        ReplyHandler rh;
+        CommandHandler ch(ser, rh);
+        ch.handle(cl);
+
+        assert(ser.getChannels().empty());
+        // ERR_NOTREGISTERED 451
+        ASSERT_HAS_MSG(cl, ":server 451 * :You have not registered\r\n");
+    }
+    catch (ClientException &)
+    {
+        assert(!cl->isRegistered());
+    }
+    catch (...)
+    {
+        assert(false);
+    }
+}
+
+#pragma endregion
 
 int main()
 {
@@ -1214,20 +3168,18 @@ int main()
 
     std::cout.rdbuf(buffer.rdbuf());
 
-    // testCorrectPassword();
-    // testIncorrectPassword();
-    // testFullRegistration();
-    // testFirstJoinerBecomesOperator();
-    // testJoinAlreadyInChannel();
-    // testJoinChannelAtUserLimit();
-    // testJoinChannel();
-    // testCreateBadChannel();
-    // testJoinInvalidChannel();
-    // testJoinMultipleChannels();
-    // //testJoinWithChannelKey(); // ! implement the keys to channels
-    // testModeOperatorStatus();
+    // BLUH BLUH
+    testCorrectPassword();
+    testIncorrectPassword();
+    testFullRegistration();
+    testJoinChannel();
+    testCreateBadChannel();
+    testJoinInvalidChannel();
+    testJoinMultipleChannels();
+    testJoinWithChannelKey();
+    testModeOperatorStatus();
 
-    ///// MODE test
+    // MODE test
     testModeRevokeOperator();
     testModeNonOpCannotGrantOp();
     testModeSetInviteOnly();
@@ -1239,7 +3191,74 @@ int main()
     testModeSetUserLimit();
     testModeRemoveUserLimit();
 
-   // testInviteOnlyAndInviteCommand(); // ! need to store if a user was invited 
+    // INVITE test
+    testInviteUserToInviteOnlyChannel();
+    testUninvitedUserCannotJoinInviteOnlyChannel();
+    testNonOpCannotInvite();
+    testInviteToNonExistentChannel();
+    testInviteNonExistentUser();
+
+    // JOIN test
+    testJoinWithCorrectKey();
+    testJoinWithWrongKey();
+    testJoinChannelAtUserLimit();
+    testJoinAlreadyInChannel();
+    testFirstJoinerBecomesOperator();
+
+    // JOIN REPLY
+    testJoinReply();
+    testJoinBroadcastToExistingMembers();
+    testJoinInviteOnlyWithoutInviteError();
+    testJoinWrongKeyError();
+    testJoinChannelFullError();
+    testJoinBadChannelNameError();
+    testJoinWithoutRegistrationError();
+
+    // INVITE REPLY
+    testInviteReply();
+    testInviteAllowsJoinToInviteOnlyChannel();
+    testInviteNonOpError();
+    testInviteToNonExistentChannelError();
+    testInviteNonExistentUserError();
+    testInviteUserAlreadyInChannelError();
+    testInviteNotInChannelError();
+
+    // MODE reply
+    testModeGrantOpReply();
+    testModeRevokeOpReply();
+    testModeSetInviteOnlyReply();
+    testModeUnsetInviteOnlyReply();
+    testModeNonOpCannotSetInviteOnly();
+    testModeSetTopicRestrictedReply();
+    testModeNonOpCannotSetTopicRestricted();
+    testModeSetKeyReply();
+    testModeRemoveKeyReply();
+    testModeSetUserLimitReply();
+    testModeRemoveUserLimitReply();
+    testModeOnNonExistentChannel();
+    testModeNotInChannel();
+    testModeNotInChannelError();
+    testModeNonExistentChannelError();
+    testModeCombinedKeyAndLimitReply();
+    testModeNoFlagReturnsChannelModeString();
+    testModeCombinedPlusItBroadcast();
+    testModeUnknownFlagError();
+    testModeUnsetTopicRestrictedReply();
+    testModeNonOpCannotUnsetTopicRestricted();
+    testModeRemoveLimitWhenNoneSetIsIdempotent();
+    testModeSetLimitNoParamError();
+    testModeSetLimitZeroError();
+    testModeSetLimitNonNumericError();
+    testModeNonOpCannotSetLimit();
+    testModeNonOpCannotSetKey();
+    testModeSetKeyWhenKeyAlreadySetError();
+    testModeSetKeyNoParamError();
+    testModeRevokeOpNoParamError();
+    testModeRevokeOpNotOpIsIdempotent();
+    testModeGrantOpAlreadyOpIsIdempotent();
+    testModeGrantOpUserNotInChannelError();
+    testModeGrantOpNonExistentNickError();
+    testModeGrantOpNoParamError();
     
     std::cout.rdbuf(oldCoutBuffer);
     std::cout << "All tests finished" << std::endl;

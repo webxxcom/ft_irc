@@ -15,9 +15,11 @@ public:
     ReplyHandler();
     ~ReplyHandler();
 
+    void badChannelMask(Client *client, const std::string& channelName) const;
     void noSuchChannel(Client* client, const std::string& channelName) const;
     void noSuchNick(Client* client, const std::string& nick) const;
     void notOnChannel(Client* client, const std::string& channelName) const;
+    void alreadyOnChannel(Client* client, const std::string &inviteeName, const std::string& channelName) const;
     void userNotInChannel(Client* client, const std::string& nick, const std::string& channelName) const;
 
     void channelIsFull(Client* client, const std::string& channelName) const;
@@ -28,7 +30,7 @@ public:
     void chanOpPrivsNeeded(Client* client, const std::string& channelName) const;
     void noPrivileges(Client* client) const;
 
-    void unknownMode(Client* client, char mode) const;
+    void unknownMode(Client* client, const std::string &channelName, char mode) const;
     void unknownCommand(Client* client, const std::string& command) const;
 
     void needMoreParams(Client* client, const std::string& command) const;
@@ -43,7 +45,7 @@ public:
 
     void inviting(Client *inviter, Client *invitee, const std::string& channelName) const;
 
-    void nameReply(Client* client, const std::string& channelName, const std::string& names) const;
+    void nameReply(Client* client, Channel *channel) const;
     void endOfNames(Client* client, const std::string& channelName) const;
 
 private:

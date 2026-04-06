@@ -151,13 +151,6 @@ ERROR_REPLIES:
       collision (registered of a NICK that already exists by another
       server).
       
-  443:
-    name: ERR_USERONCHANNEL
-    reply: <user> <channel> :is already on channel
-    desc: >
-      Returned when a client tries to invite a user to a channel they
-      are already on.
-      
   444:
     name: ERR_NOLOGIN
     reply: <user> :User not logged in
@@ -870,12 +863,6 @@ RESERVED_NUMERALS:
 
   466:
     name: ERR_YOUWILLBEBANNED   
-    reply: n/a
-    desc: >
-      n/a
-
-  476:
-    name: ERR_BADCHANMASK
     reply: n/a
     desc: >
       n/a

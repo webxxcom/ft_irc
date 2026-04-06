@@ -99,42 +99,57 @@ void CommandHandler::handleCap(Client *client, std::stringstream& command)
 // JOIN <channels> [<keys>]
 void CommandHandler::handleJoin(Client *client, std::stringstream &command)
 {
-	std::string channel;
-	std::getline(command, channel, ' ');
+	if (!client->isRegistered())
+		return _replyHandler.notRegistered(client);
 
-	// ! The keys to channels are not yet implemented
+	std::string channelName, key;
+	std::getline(command, channelName, ' ');
+	std::getline(command, key, ' ');
+
 	std::stringstream channelList;
-	channelList << channel;
+	channelList << channelName;
+	std::stringstream keyList;
+	keyList << key;
 	while (!channelList.eof())
 	{
-		std::getline(channelList, channel, ',');
-		if (channel[0] != '#' || channel.size() < 2)
+		std::getline(channelList, channelName, ',');
+		if (channelName[0] != '#' || channelName.size() < 2)
 		{
-			_replyHandler.noSuchChannel(client, channel);
+			_replyHandler.badChannelMask(client, channelName);
 			continue;
 		}
 
-		Channel *ch = _server._channelsByName.find(channel);
+		Channel *ch = _server._channelsByName.find(channelName);
 		if (!ch)
-			ch = _server.createChannel(client, channel);
+			ch = _server.createChannel(client, channelName);
 		else
 		{
 			if ((ch->getModes() & Channel::E_INVITE_ONLY) && !client->isInvitedTo(ch))
-				return _replyHandler.inviteOnlyChannel(client, channel);
-			if ((ch->getModes() & Channel::E_USER_LIMIT) && ch->getMembers().size() >= ch->getUserLimit())
-				return _replyHandler.channelIsFull(client, channel);
-
-			// ! IMPLEMENT KEY
-			//if (ch->getKey() != key)
-			//	return _replyHandler.badChannelKey(client, channel);
+			{
+				_replyHandler.inviteOnlyChannel(client, channelName);
+				continue;
+			}
+			else if ((ch->getModes() & Channel::E_USER_LIMIT) && ch->getMembers().size() >= ch->getUserLimit())
+			{
+				_replyHandler.channelIsFull(client, channelName);
+				continue;
+			}
+			else
+			{
+				std::getline(keyList, key, ',');
+				if (ch->getKey() != key)
+				{
+					_replyHandler.badChannelKey(client, channelName);
+					continue;
+				}
+			}
 		}
-		
 		std::string msg = 
-			":" + client->getFullUserPrefix() + " JOIN " + ":" + channel;
-		ch->broadcast(msg);
+			":" + client->getFullUserPrefix() + " JOIN " + channelName;
 		ch->addMember(client);
-		_replyHandler.nameReply(client, channel, "NAMES"); // !
-		_replyHandler.endOfNames(client, channel);
+		ch->broadcast(msg);
+		_replyHandler.nameReply(client, ch);
+		_replyHandler.endOfNames(client, channelName);
 	}
 }
 
@@ -177,28 +192,30 @@ void CommandHandler::handleKick(Client *client, std::stringstream &command)
 // INVITE <nickname> <channel>
 void CommandHandler::handleInvite(Client *client, std::stringstream &command)
 {
-	std::string nickname, channel;
+	std::string nickname, channelName;
 
 	std::getline(command, nickname, ' ');
-	std::getline(command, channel, ' ');
+	std::getline(command, channelName, ' ');
 
-	if (channel[0] != '#' || channel.size() < 2)
+	if (channelName[0] != '#' || channelName.size() < 2)
 		return ;
 
-	Channel * ch = _server._channelsByName.find(channel);
+	Channel * ch = _server._channelsByName.find(channelName);
 	if (!ch)
-		return _replyHandler.noSuchChannel(client, channel);
+		return _replyHandler.noSuchChannel(client, channelName);
 
 	if (!ch->hasMember(client))
-		return _replyHandler.notOnChannel(client, channel);
+		return _replyHandler.notOnChannel(client, channelName);
 	if ((ch->getModes() & Channel::E_INVITE_ONLY) && !ch->hasOperator(client))
-		return _replyHandler.chanOpPrivsNeeded(client, channel);
+		return _replyHandler.chanOpPrivsNeeded(client, channelName);
 
 	Client *invitee = _server._clientsByName.find(nickname);
 	if (!invitee)
 		return _replyHandler.noSuchNick(client, nickname);
 
-	_replyHandler.inviting(client, invitee, channel);
+	if (ch->hasMember(invitee))
+		return _replyHandler.alreadyOnChannel(client, nickname, channelName);
+	_replyHandler.inviting(client, invitee, channelName);
 	invitee->getsInvitedTo(ch);
 }
 
@@ -215,10 +232,6 @@ void CommandHandler::handleTopic(Client *client, std::stringstream &command)
 	482 ERR_CHANOPRIVSNEEDED 	- change mode with no operator privilege	+
 	461 ERR_NEEDMOREPARAMS		- missing required params
 	472 ERR_UNKNOWNMODE			- unknown mode character(channel)			+
-	501 ERR_UMODEUNKNOWNFLAG	- unknown user mode flag(user)
-	502 ERR_USERSDONTMATCH		- trying to change other users flag	
-	441 ERR_USERNOTINCHANNEL	- for modes like +o
-	467 ERR_KEYSET				- setting +k when already set
 */
 void CommandHandler::handleMode(Client *client, std::stringstream &command)
 {
@@ -245,6 +258,7 @@ void CommandHandler::handleMode(Client *client, std::stringstream &command)
 			if (flags[0] != '+' && flags[0] != '-')
 				return _replyHandler.needMoreParams(client, "MODE");
 
+			std::string replyFlags = std::string(1, flags[0]), replyParams;
 			for (size_t i = 1; i < flags.size(); ++i)
 			{
 				switch (flags[i])
@@ -253,12 +267,14 @@ void CommandHandler::handleMode(Client *client, std::stringstream &command)
 					{	
 						if (flags[0] == '+') ch->makeInviteOnly();
 						else ch->removeMode(Channel::E_INVITE_ONLY);
+						replyFlags += flags[i];
 						break;
 					}
 					case 't':
 					{
 						if (flags[0] == '+') ch->makeTopicRestricted();
 						else ch->removeMode(Channel::E_TOPIC_RESTRICT);
+						replyFlags += flags[i];
 						break;
 					}
 					case 'k':
@@ -269,15 +285,28 @@ void CommandHandler::handleMode(Client *client, std::stringstream &command)
 							break;
 						}
 						std::getline(command, param, ' ');
-						if (flags[0] == '+') ch->makeKey(param);
+						if (flags[0] == '+' && param.empty()) _replyHandler.needMoreParams(client, "MODE");
+						else if (flags[0] == '+') ch->makeKey(param);
 						else ch->removeMode(Channel::E_CHANNEL_KEY);
+
+						replyFlags += flags[i];
+						if (!replyParams.empty())
+							replyParams += " ";
+						replyParams += param;
 						break;
 					}
 					case 'l':
 					{
 						std::getline(command, param, ' ');
-						if (flags[0] == '+') ch->makeUserLimit(std::atoi(param.c_str()));
+						int limit = std::atoi(param.c_str());
+						if ((limit == 0 && flags[0] == '+') || (flags[0] == '+' && param.empty())) _replyHandler.needMoreParams(client, "MODE");
+						else if (flags[0] == '+' && !param.empty()) ch->makeUserLimit(limit);
 						else ch->removeMode(Channel::E_USER_LIMIT);
+
+						replyFlags += flags[i];
+						if (!replyParams.empty())
+							replyParams += " ";
+						replyParams += param;
 						break;
 					}
 					case 'o':
@@ -290,6 +319,11 @@ void CommandHandler::handleMode(Client *client, std::stringstream &command)
 							{
 								if (flags[0] == '+') ch->addOperator(target);
 								else ch->removeOperator(target);
+
+								replyFlags += flags[i];
+								if (!replyParams.empty())
+									replyParams += " ";
+								replyParams += param;
 							}
 						}
 						else
@@ -297,9 +331,14 @@ void CommandHandler::handleMode(Client *client, std::stringstream &command)
 						break;
 					}
 					default:
-						_replyHandler.unknownMode(client, flags[i]);
+						_replyHandler.unknownMode(client, first, flags[i]);
 				}
 			}
+			std::string msg = ":" + client->getFullUserPrefix() + " MODE "
+				+ first + " " + replyFlags;
+			if (!replyParams.empty())
+				msg += " " + replyParams;
+			ch->broadcast(msg);
 		}
 		else
 			_replyHandler.channelModeIs(client, first, ch->getIrcModes());
@@ -328,7 +367,7 @@ Client *CommandHandler::clientLooksFor(Client *client, std::string const &nick, 
 	
 	if (ch && !ch->hasMember(target))
 	{
-		_replyHandler.notOnChannel(client, ch->getName());
+		_replyHandler.userNotInChannel(client, nick, ch->getName());
 		return NULL;
 	}
     return target;

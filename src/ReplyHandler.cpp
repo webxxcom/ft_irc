@@ -9,11 +9,17 @@ date: 4/6/2026
 
 #include <sstream>
 #include "Exceptions.hpp"
+#include "Channel.hpp"
 
 ReplyHandler::ReplyHandler() { }
 ReplyHandler::~ReplyHandler() { }
 
 using namespace irc;
+
+void ReplyHandler::badChannelMask(Client *client, const std::string &channelName) const
+{
+    handle(ERR_BADCHANMASK, client, channelName);
+}
 
 void ReplyHandler::noSuchChannel(Client *client, std::string const &channelName) const
 {
@@ -30,9 +36,14 @@ void ReplyHandler::notOnChannel(Client *client, const std::string &channelName) 
     handle(ERR_NOTONCHANNEL, client, channelName);
 }
 
+void ReplyHandler::alreadyOnChannel(Client *client, const std::string &inviteeName, const std::string &channelName) const
+{
+    handle(ERR_USERONCHANNEL, client, inviteeName + " " + channelName);
+}
+
 void ReplyHandler::userNotInChannel(Client *client, const std::string &nick, const std::string &channelName) const
 {
-    handle(ERR_USERNOTINCHANNEL, client, channelName);
+    handle(ERR_USERNOTINCHANNEL, client, nick + " " + channelName);
 }
 
 void ReplyHandler::inviteOnlyChannel(Client *client, std::string const &channelName) const
@@ -47,7 +58,7 @@ void ReplyHandler::badChannelKey(Client *client, const std::string &channelName)
 
 void ReplyHandler::keySet(Client *client, const std::string &channelName) const
 {
-    handle(ERR_KEYSET, client, "BLUH"); // ! provide extra
+    handle(ERR_KEYSET, client, channelName);
 }
 
 void ReplyHandler::chanOpPrivsNeeded(Client *client, const std::string &channelName) const
@@ -60,9 +71,9 @@ void ReplyHandler::noPrivileges(Client *client) const
     handle(ERR_NOPRIVILEGES, client);
 }
 
-void ReplyHandler::unknownMode(Client *client, char mode) const
+void ReplyHandler::unknownMode(Client *client, const std::string &channelName, char mode) const
 {
-    handle(ERR_UNKNOWNMODE, client, "" + mode);
+    handle(ERR_UNKNOWNMODE, client, channelName + " " + std::string(1, mode));
 }
 
 void ReplyHandler::unknownCommand(Client *client, const std::string &command) const
@@ -103,21 +114,41 @@ void ReplyHandler::channelModeIs(Client *client, const std::string &channelName,
 void ReplyHandler::inviting(Client *inviter, Client *invitee, const std::string &channelName) const
 {
 	// :<inviter>!<user>@<host> INVITE <invitee> :<channel>
-    invitee->receiveMsg(inviter->getFullUserPrefix() + " INVITE " + invitee->getNickname() + ":" + channelName);
+    invitee->receiveMsg(":" + inviter->getFullUserPrefix() + " INVITE " + invitee->getNickname() + " :" + channelName + "\r\n");
     // ! Not sure about username
 
 	// :server 341 <inviter> <invitee> <channel>
     handle(RPL_INVITING, inviter, invitee->getNickname() + " " + channelName);
 }
 
-void ReplyHandler::nameReply(Client *client, const std::string &channelName, const std::string &names) const
+void ReplyHandler::nameReply(Client *client, Channel *channel) const
 {
-    handle(RPL_NAMREPLY, client, channelName);
+    std::string names, symbol = channel->isInviteOnly() ? "*" : "=";
+
+    for (std::set<Client*>::iterator it = channel->getMembers().begin(); it != channel->getMembers().end(); ++it)
+    {
+        if (channel->hasOperator(*it))
+        {
+            if (!names.empty()) names += " ";
+            names += "@" + (*it)->getIrcNickname();
+        }
+    }
+
+    for (std::set<Client*>::iterator it = channel->getMembers().begin(); it != channel->getMembers().end(); ++it)
+    {
+        if (!channel->hasOperator(*it))
+        {
+            if (!names.empty()) names += " ";
+            names += (*it)->getIrcNickname();
+        }
+    }
+
+    handle(RPL_NAMREPLY, client, symbol + " " + channel->getName() + " :" + names);
 }
 
 void ReplyHandler::endOfNames(Client *client, const std::string &channelName) const
 {
-    handle(RPL_NAMREPLY, client, channelName);
+    handle(RPL_ENDOFNAMES, client, channelName);
 }
 
 void ReplyHandler::channelIsFull(Client *client, std::string const &channelName) const
@@ -144,7 +175,7 @@ void ReplyHandler::handle(irc::ServerNotifyCodes code, Client *client, std::stri
             msg << ":already registered\r\n";
             throw ClientException(msg.str());
         case ERR_NOTREGISTERED:
-            msg << ":complete registration first\r\n";
+            msg << ":You have not registered\r\n";
             throw ClientException(msg.str());
         case ERR_UNKNOWN_COMMAND:
             msg << extra << " :Unknown command";
@@ -154,6 +185,9 @@ void ReplyHandler::handle(irc::ServerNotifyCodes code, Client *client, std::stri
             break;
         case ERR_NOSUCHCHANNEL:
             msg << extra << " :No such channel";
+            break;
+        case ERR_USERONCHANNEL:
+            msg << extra << " :is already on channel";
             break;
         case ERR_NOTONCHANNEL:
             msg << extra << " :You're not on that channel";
@@ -168,7 +202,7 @@ void ReplyHandler::handle(irc::ServerNotifyCodes code, Client *client, std::stri
             msg << extra << " :You're not channel operator";
             break;
         case ERR_UNKNOWNMODE:
-            msg << extra << " :is unknown mode char to me";
+            msg << extra << " :is unknown mode char";
             break;
         case ERR_INVITEONLYCHAN:
             msg << extra << " :Cannot join channel (+i)";
@@ -176,20 +210,27 @@ void ReplyHandler::handle(irc::ServerNotifyCodes code, Client *client, std::stri
         case ERR_BADCHANNELKEY:
             msg << extra << " :Cannot join channel (+k)";
             break;
+        case ERR_CHANNELISFULL:
+            msg << extra << " :Cannot join channel (+l)";
+            break;
+        case ERR_BADCHANMASK:
+            msg << extra << " :Bad Channel Mask";
+            break;
         case ERR_KEYSET:
-            msg << extra << " :"; // ! provide message for the error
+            msg << extra << " :Channel key already set";
             break;
         case ERR_NEEDMOREPARAMS:
             msg << extra << " :Not enough parameters";
             break;
+
         case RPL_INVITING:
             msg << extra;
             break;
         case RPL_NAMREPLY:
-            msg << extra << " :LIST OF NAME"; // ! must implement the NAMES
+            msg << extra;
             break;
         case RPL_ENDOFNAMES:
-            msg << extra << " :End of NAMES"; // ! must implement the end of names
+            msg << extra << " :End of /NAMES list";
             break;
         case RPL_CHANNELMODEIS:
             msg << extra;

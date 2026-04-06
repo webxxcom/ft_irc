@@ -45,7 +45,7 @@ std::string                 Client::getIrcNickname()    const   { return _state.
 const std::string           &Client::getUsername()      const   { return _username; }
 const std::string           &Client::getRealname()      const   { return _realname; }
 int                         Client::getFd()             const   { return _fd; }
-std::string                 Client::getFullUserPrefix() const   { return _nickname + "!" + _username + "@" + "host"; }
+std::string                 Client::getFullUserPrefix() const   { return _nickname + "!" + _username + "@" + "server"; }
 
 bool Client::isRegistered() const
 {
@@ -105,5 +105,10 @@ void Client::addtoBuffer(std::string msg) {
 
 void Client::receiveMsg(std::string const &msg)
 {
-    _inMsg.push_back(msg);
+    std::string toSend = msg;
+
+    if (msg[msg.size() - 1] != '\n' && msg[msg.size() - 2] != '\r')
+        toSend.append("\r\n");
+    
+    _inMsg.push_back(toSend);
 }

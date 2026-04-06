@@ -36,7 +36,9 @@ std::string Channel::getIrcModes() const
 			params << " ";
 		params << _modes._userLimit;
 	}
-	return flags + " " + params.str();
+	if (!params.str().empty())
+		flags += " ";
+	return flags + params.str();
 }
 size_t				Channel::getUserLimit()			const { return _modes._userLimit; }
 bool				Channel::isInviteOnly()			const { return _modes._modes & E_INVITE_ONLY; }
