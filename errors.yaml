@@ -128,21 +128,6 @@ ERROR_REPLIES:
       Returned when a nickname parameter expected for a command and isn't
       found.
       
-  432:
-    name: ERR_ERRONEUSNICKNAME
-    reply: <nick> :Erroneus nickname
-    desc: >
-      Returned after receiving a NICK message which contains characters
-      which do not fall in the defined set. See section x.x.x for
-      details on valid nicknames.
-      
-  433:
-    name: ERR_NICKNAMEINUSE
-    reply: <nick> :Nickname is already in use
-    desc: >
-      Returned when a NICK message is processed that results in an
-      attempt to change to a currently existing nickname.
-      
   436:
     name: ERR_NICKCOLLISION
     reply: <nick> :Nickname collision KILL
@@ -187,30 +172,12 @@ ERROR_REPLIES:
       Returned after an attempt to connect and register yourself with a
       server which has been setup to explicitly deny connections to you.
       
-  467:
-    name: ERR_KEYSET
-    reply: <channel> :Channel key already set
-    desc: >
-      n/a
-
-  471:
-    name: ERR_CHANNELISFULL
-    reply: <channel> :Cannot join channel (+l)
-    desc: >
-      n/a
-
   474:
     name: ERR_BANNEDFROMCHAN
     reply: <channel> :Cannot join channel (+b)
     desc: >
       n/a
 
-  475:
-    name: ERR_BADCHANNELKEY
-    reply: <channel> :Cannot join channel (+k)
-    desc: >
-      n/a
-      
   483:
     name: ERR_CANTKILLSERVER
     reply: :You cant kill a server!

@@ -16,6 +16,16 @@ ReplyHandler::~ReplyHandler() { }
 
 using namespace irc;
 
+void ReplyHandler::erroneusNick(Client *client, const std::string &nick) const
+{
+    handle(ERR_ERRONEUSNICKNAME, client, nick);
+}
+
+void ReplyHandler::nicknameAlreadyInUse(Client *client, const std::string &nick) const
+{
+    handle(ERR_NICKNAMEINUSE, client, nick);
+}
+
 void ReplyHandler::badChannelMask(Client *client, const std::string &channelName) const
 {
     handle(ERR_BADCHANMASK, client, channelName);
@@ -182,6 +192,12 @@ void ReplyHandler::handle(irc::ServerNotifyCodes code, Client *client, std::stri
             break ;
         case ERR_NOSUCHNICK:
             msg << extra << " :No such nick/channel";
+            break;
+        case ERR_NICKNAMEINUSE:
+            msg << extra << " :Nickname is already in use";
+            break;
+        case ERR_ERRONEUSNICKNAME:
+            msg << extra << " :Erroneous nickname";
             break;
         case ERR_NOSUCHCHANNEL:
             msg << extra << " :No such channel";

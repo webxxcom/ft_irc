@@ -76,13 +76,50 @@ void CommandHandler::handleUser(Client *client, std::stringstream& command)
 	client->setRealname(word);
 }
 
+bool isValidNick(const std::string& nick)
+{
+    if (nick.empty() || nick.length() > 9)
+        return false;
+
+    char first = nick[0];
+    if (!(std::isalpha(first) ||
+          first == '[' || first == ']' || first == '\\' ||
+          first == '`' || first == '^' || first == '{' || first == '}'
+         ))
+    {
+        return false;
+    }
+
+    for (size_t i = 1; i < nick.length(); ++i)
+    {
+        char c = nick[i];
+        if (!(std::isalnum(c) ||
+              c == '-' ||
+              c == '[' || c == ']' || c == '\\' ||
+              c == '`' || c == '^' || c == '{' || c == '}'
+             ))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 void CommandHandler::handleNick(Client *client, std::stringstream& command)
 {
-	std::string word;
+	std::string nick;
    
-	std::getline(command, word, ' ');
-	client->setNickname(word);
-	_server._clientsByName.insert(std::pair<std::string, Client *>(word, client));
+	std::getline(command, nick, ' ');
+	if (!isValidNick(nick))
+		_replyHandler.erroneusNick(client, nick);
+	else if (_server._clientsByName.find(nick) == NULL)
+	{
+		client->setNickname(nick);
+		_server._clientsByName.insert(std::pair<std::string, Client *>(nick, client));
+	}
+	else
+		_replyHandler.nicknameAlreadyInUse(client, nick);
 }
 
 void CommandHandler::handleCap(Client *client, std::stringstream& command)
@@ -160,6 +197,9 @@ void CommandHandler::handlePrivmsg(Client *client, std::stringstream &command)
 // KICK <channel> <client> :[<message>]
 void CommandHandler::handleKick(Client *client, std::stringstream &command)
 {
+	if (!client->isRegistered())
+		return _replyHandler.notRegistered(client);
+
 	std::string channel, member, message;
 	std::getline(command, channel, ' ');
 	std::getline(command, member, ' ');
@@ -192,6 +232,9 @@ void CommandHandler::handleKick(Client *client, std::stringstream &command)
 // INVITE <nickname> <channel>
 void CommandHandler::handleInvite(Client *client, std::stringstream &command)
 {
+	if (!client->isRegistered())
+		return _replyHandler.notRegistered(client);
+
 	std::string nickname, channelName;
 
 	std::getline(command, nickname, ' ');
@@ -224,17 +267,11 @@ void CommandHandler::handleTopic(Client *client, std::stringstream &command)
 
 }
 
-
-/*
-	401 ERR_NOSUCHNICK 			- user does not exist						+
-	403 ERR_NOSUCHCHANNEL 		- channel does not exist					+
-	442 ERR_NOTONCHANNEL 		- you're not on that channel				+
-	482 ERR_CHANOPRIVSNEEDED 	- change mode with no operator privilege	+
-	461 ERR_NEEDMOREPARAMS		- missing required params
-	472 ERR_UNKNOWNMODE			- unknown mode character(channel)			+
-*/
 void CommandHandler::handleMode(Client *client, std::stringstream &command)
 {
+	if (!client->isRegistered())
+		return _replyHandler.notRegistered(client);
+
 	std::string first, flags, param;
 
 	std::getline(command, first, ' ');

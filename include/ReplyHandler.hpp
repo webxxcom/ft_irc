@@ -15,6 +15,8 @@ public:
     ReplyHandler();
     ~ReplyHandler();
 
+    void erroneusNick(Client *client, const std::string &nick) const;
+    void nicknameAlreadyInUse(Client *client, const std::string& nick) const;
     void badChannelMask(Client *client, const std::string& channelName) const;
     void noSuchChannel(Client* client, const std::string& channelName) const;
     void noSuchNick(Client* client, const std::string& nick) const;
