@@ -25,8 +25,8 @@ class Client {
         std::string                     _username;
         std::string                     _address;
         std::string                     _buffer;
-        std::vector<std::string>        _outMsg; // changed vector to stack to efficiently pop the elems
-        std::vector<std::string>        _inMsg;
+        std::queue<std::string>         _outMsg;
+        std::queue<std::string>         _inMsg;
     public:
 
         // Constructors
@@ -37,7 +37,7 @@ class Client {
         ~Client();
 
         // Getters
-        std::vector<std::string>& getReceivedMessages();
+        std::queue<std::string>& getReceivedMessages();
         std::string &getRecvBuffer();
         const std::string& getNickname() const;
         std::string getIrcNickname() const;
@@ -53,7 +53,7 @@ class Client {
         void setUsername(std::string const& username);
         void setRealname(std::string const& username);
         
-        std::vector<std::string> getinMsg(void) const;
+        std::queue<std::string> getinMsg(void) const;
         void clearinMsg();
         void addinMsg(std::string remainder);
         void addtoBuffer(std::string msg); //needed after Roman change??

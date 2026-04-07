@@ -120,14 +120,14 @@ void Server::disconnectClient(Client &client) {
 
 void Server::handleClientCommands(Client &client)
 {
-    std::vector<std::string> &mssgs = client.getReceivedMessages();
+    std::queue<std::string> &mssgs = client.getReceivedMessages();
 
     while (!mssgs.empty())
     {
         // Get the whole line
         std::stringstream line;
-        line << mssgs.back();
-        mssgs.pop_back();
+        line << mssgs.front();
+        mssgs.pop();
 
         // Extract single command
         std::string command;
@@ -137,8 +137,12 @@ void Server::handleClientCommands(Client &client)
         std::map<std::string, CommandHandler>::iterator it = _command_map.find(command);
         if (it != _command_map.end())
             (this->*(it->second))(client, line);
-        else
+        else {
             client.receiveMsg(":server 421 " + client.getIrcNickname() + " " + command + ":unknown command\r\n");
+            size_t i = _fd_index_map[client.getFd()];
+            this->_pollfds[i].events = POLLIN | POLLOUT;
+        }
+            
     }
 }
 
@@ -162,14 +166,13 @@ void Server::terminateClient(ServerErrorCodes error_code, Client &client)
             break ;
     }
     msg += "\r\n";
-    throw ClientException(msg);
+    throw ClientException(msg); //talk to roman> not okay, breaks client completely
 }
 
 // !! talk wit roman about the references, if better change??
 // after renaming receivedmsg to inmsg >> better .getreceivedmsg to .getinmsg, makes more sense
+// maybe confused< why roman>static, then uses buffer
 
-
-//issue: when ctrl+c on clients side
 bool Server::receiveClientData(Client &client)
 {
     std::string &buffer = client.getRecvBuffer();
@@ -185,16 +188,19 @@ bool Server::receiveClientData(Client &client)
         {
             std::string singleMsg = buffer.substr(0, endMsg);
 
-            client.getReceivedMessages().push_back(singleMsg);
+            client.getReceivedMessages().push(singleMsg);
 
-            std::cout << "msg: " << singleMsg << '\n';
+            // std::cout << "msg: " << singleMsg << '\n';
             buffer.erase(0, endMsg + 2);
         }
         handleClientCommands(client);
 
         // Client expects message `001' about successfull connection
-        if (client.isRegistered())
+        if (client.isRegistered()) {
             client.receiveMsg(":server 001 " + client.getNickname() + " :Welcome to the IRC server");
+            size_t i = _fd_index_map[client.getFd()];
+            this->_pollfds[i].events = POLLIN | POLLOUT;
+        }
     }
     else
     {
@@ -209,24 +215,30 @@ bool Server::receiveClientData(Client &client)
 }
 
 bool Server::messageClient(Client &client) {
-    std::vector<std::string> msgtoSend = client.getinMsg();
-    if (msgtoSend[0].empty())
+    size_t i = _fd_index_map[client.getFd()];
+    std::queue<std::string> msgtoSend = client.getinMsg();
+    if (msgtoSend.empty()) {
+        this->_pollfds[i].events = POLLIN;
         return false;
+    }
     std::string longMsg = "";
-    for (size_t i = 0; i < msgtoSend.size(); i++) {
-        longMsg += msgtoSend[i];
+    while(!msgtoSend.empty()) {
+        longMsg += msgtoSend.front();
+        msgtoSend.pop();
     }
     client.clearinMsg();
-    ssize_t bytessend = send(client.getFd(), longMsg.c_str(), longMsg.length(), 0);
+    ssize_t bytessend = send(client.getFd(), longMsg.c_str(), longMsg.length(), MSG_NOSIGNAL);
     if (bytessend > 0) {
         if (static_cast<size_t>(bytessend) < longMsg.length()) {
             std::string remainder = longMsg.substr(bytessend);
             client.addinMsg(remainder);
+            this->_pollfds[i].events = POLLIN | POLLOUT;
         }
     }
     else if (bytessend == -1) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
             client.addinMsg(longMsg);
+            this->_pollfds[i].events = POLLIN | POLLOUT;
         }
         else {
             std::cerr << "send() error" << std::endl;
@@ -239,9 +251,16 @@ bool Server::messageClient(Client &client) {
 
 void Server::finishServer(void) {
 
-    //close all clients fd
-    //close server fd in destructor
-
+    // or maybe close in clients destructor, would probably be better
+    for (size_t k = 0; k < this->_pollfds.size(); ++k) {
+        if (this->_pollfds[k].fd >= 0)
+            close(this->_pollfds[k].fd);
+    }
+    this->_pollfds.clear();
+    this->_clients.clear();
+    this->_channels.clear();
+    this->_fd_index_map.clear();
+    //if roman uses pointers, first need to free memory (close, delete, clear)
 }
 
 void Server::startServer(void) {
@@ -263,7 +282,7 @@ void Server::handlePolls()
 
     //discuss with roman: since moved outside start server, diffrent ctrl+c behaviour
     //is it ok according to subject?
-    
+
     while (i < this->_pollfds.size())
     {
         try
@@ -288,32 +307,47 @@ void Server::handlePolls()
                 if (!iDisconnected && this->_pollfds[i].revents & POLLOUT)
                     iDisconnected = messageClient(this->_clients.at(this->_pollfds[i].fd));
             }
-            if (!iDisconnected)
-                ++i;
+            // if (!iDisconnected)
+            //     ++i;
         }
+        // ! talk to roman: dont think can use while loop here to not block server
+        //just send and disconnect?
+        //but also not after poll() so subject incorrect >>buffer instead
+        //also discuss purpose, would change ++i placement
         catch(const ClientException& e)
         {
-            ssize_t total = 0, len = strlen(e.what());
+            //roman thingie
+            // ssize_t total = 0, len = strlen(e.what());
 
-            // talk to roman: dont think can use while loop here to not block server
-            //just send and disconnect?
-            //also discuss purpose, would change ++i placement
 
-            while (total < len)
-            {
-                std::cout << "Sending " << e.what() + total << std::endl;
-                // TEST: `messageClient' didn't work
-                ssize_t n = ::send(this->_pollfds[i].fd, e.what() + total, strlen(e.what()) - total, 0);
-                if (n <= 0)
-                    break ;
-                total += n;
-            }
-            //A>by the previously commented logic, isnt it risky to use this->_pollfds[i].fd? 
-            //why change it everywhere else and leave here??
 
+            // while (total < len)
+            // {
+            //     std::cout << "Sending " << e.what() + total << std::endl;
+            //     // TEST: `messageClient' didn't work
+            //     ssize_t n = ::send(this->_pollfds[i].fd, e.what() + total, strlen(e.what()) - total, 0);
+            //     if (n <= 0)
+            //         break ;
+            //     total += n;
+            // }
+            // //A>by the previously commented logic, isnt it risky to use this->_pollfds[i].fd? 
+            // //why change it everywhere else and leave here??
+
+            // disconnectClient(this->_clients[this->_pollfds[i].fd]);
+            // // iDisconnected = true;
+            // // if specific purpose (roman) add iDisconnected bool
+
+            std::string errMsg = std::string("Error :") + e.what() + "\r\n";
+            std::cout<< "disconnecting fd.." << std::endl;
+            send(this->_pollfds[i].fd, errMsg.c_str(), errMsg.length(), MSG_NOSIGNAL);
             disconnectClient(this->_clients[this->_pollfds[i].fd]);
-            // if specific purpose (roman) add iDisconnected bool
+            iDisconnected = true;
+
+            //or could do bool pending disconnect
+            //this->_clients[this->_pollfds[i].fd].addinMsg(errMsg);
         }
+        if (!iDisconnected)
+            ++i;
     }
 }
 
@@ -360,13 +394,20 @@ void Server::handleNick(Client& client, std::stringstream& command)
 
 void Server::handleCap(Client& client, std::stringstream& command)
 {
+    size_t i = _fd_index_map[client.getFd()];
     std::string word;
     
     std::getline(command, word, ' ');
-    if (word == "LS") // 
+    if (word == "LS") //
+    {
         client.receiveMsg(":server CAP * LS :\r\n"); // No capabilities
-    else // Do not support any other than LS
+        this->_pollfds[i].events = POLLIN | POLLOUT;
+    }
+    else // Do not support any other than LS {
+    {
         client.receiveMsg(":server 421 " + client.getIrcNickname() + " " + word + ":unknown command for CAP\r\n");
+        this->_pollfds[i].events = POLLIN | POLLOUT;
+    }
 }
 
 void Server::handleJoin(Client &client, std::stringstream &command)
@@ -415,11 +456,17 @@ void Server::handleKick(Client &client, std::stringstream &command)
             return ;
 
         std::map<std::string, Client *>::const_iterator it = ch.getMembers().find(who);
-        if (it != ch.getMembers().end())
+        if (it != ch.getMembers().end()) {
             it->second->receiveMsg("ERROR :" + message);
+            size_t i = _fd_index_map[it->second->getFd()];
+            this->_pollfds[i].events = POLLIN | POLLOUT;
+        }
     }
-    else
+    else {
         client.receiveMsg(":server :channel with that name does not exist\r\n");
+        size_t i = _fd_index_map[client.getFd()];
+        this->_pollfds[i].events = POLLIN | POLLOUT;
+    }
 }
 
 void Server::handleInvite(Client &client, std::stringstream &command)
@@ -443,6 +490,8 @@ void Server::handleInvite(Client &client, std::stringstream &command)
             if (it == ch.getOperators().end()) // Client is not an operator
             {
                 client.receiveMsg("ERROR :you are not channel's operator\r\n");
+                size_t i = _fd_index_map[client.getFd()];
+                this->_pollfds[i].events = POLLIN | POLLOUT;
                 return ;
             }
         }
@@ -453,6 +502,8 @@ void Server::handleInvite(Client &client, std::stringstream &command)
             // Send the invitation in format: :<inviter> INVITE <invitee> :<channel>
             if (it->second.getNickname() == nickname)
                 it->second.receiveMsg(":" + client.getNickname() + " INVITE " + nickname + " :" + channel + "\r\n");
+                size_t i = _fd_index_map[it->second.getFd()];
+                this->_pollfds[i].events = POLLIN | POLLOUT;
         }
     }
 }

@@ -17,6 +17,7 @@
 #include <csignal>
 #include <string.h>
 #include <cerrno>
+#include <queue>
 
 #include "Client.hpp"
 #include "Server.hpp"

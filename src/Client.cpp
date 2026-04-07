@@ -30,7 +30,7 @@ Client::~Client() {
     // std::cout << "Client disconnected" << std::endl;
 }
 
-std::vector<std::string>    &Client::getReceivedMessages()      { return this->_outMsg; }
+std::queue<std::string>     &Client::getReceivedMessages()      { return this->_outMsg; }
 std::string                 &Client::getRecvBuffer()            { return this->_buffer; }
 const std::string           &Client::getNickname()      const   { return _nickname; }
 std::string                 Client::getIrcNickname()    const   { return _state.has_nick ? _nickname : "*"; }
@@ -70,26 +70,28 @@ void Client::setNickname(std::string const& nickname)
     _state.has_nick = true;
 }
 
-std::vector<std::string> Client::getinMsg(void) const{
+std::queue<std::string> Client::getinMsg(void) const{
     return this->_inMsg;
 }
 
-void Client::addtoBuffer(std::string msg) {
-    this->_buffer.append(msg);
-    // std::cout << "buffer: " << this->_buffer << std::endl;
-    // std::cout << "msg: " << msg << std::endl;
-    // std::cout << "pass: " << this->_outMsg << std::endl;
-    size_t endMsg;
-    while ((endMsg = this->_buffer.find("\r\n")) != std::string::npos) {
-        std::string singleMsg = this->_buffer.substr(0, endMsg);
-        this->_outMsg.push_back(singleMsg);
-        this->_buffer.erase(0, endMsg + 2);
-    }
-}
+
+/// not used?
+// void Client::addtoBuffer(std::string msg) {
+//     this->_buffer.append(msg);
+//     // std::cout << "buffer: " << this->_buffer << std::endl;
+//     // std::cout << "msg: " << msg << std::endl;
+//     // std::cout << "pass: " << this->_outMsg << std::endl;
+//     size_t endMsg;
+//     while ((endMsg = this->_buffer.find("\r\n")) != std::string::npos) {
+//         std::string singleMsg = this->_buffer.substr(0, endMsg);
+//         this->_outMsg.push_back(singleMsg);
+//         this->_buffer.erase(0, endMsg + 2);
+//     }
+// }
 
 void Client::receiveMsg(std::string const& msg)
 {
-    _inMsg.push_back(msg);
+    _inMsg.push(msg);
 }
 
 bool Client::isChannelOperator(Channel const &ch)
@@ -98,9 +100,12 @@ bool Client::isChannelOperator(Channel const &ch)
 }
 
 void Client::clearinMsg(void) {
-    _inMsg.clear();
+
+    _inMsg = std::queue<std::string>();
 }
 
+//same as receiveMsg >> change later
+//discuss with roman if ok passing pollfd, better then code repetition
 void Client::addinMsg(std::string remainder) {
-    _inMsg.push_back(remainder);
+    _inMsg.push(remainder);
 }
