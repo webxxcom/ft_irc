@@ -30,9 +30,10 @@ class Server {
 
 		void setupServer();
 		void acceptClient();
-		void receiveClientData(Client &client);
-		void messageClient(Client &client);
+		bool receiveClientData(Client &client);
+		bool messageClient(Client &client);
 		void disconnectClient(Client &client); // Renamed removeClient to disconnectClient
+		void updateIndex(Client &client);
 		void handleClientCommands(Client &client);
 
 		void handlePolls();

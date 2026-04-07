@@ -81,7 +81,7 @@ void Server::acceptClient(void) {
     socklen_t lenc = sizeof(c);
     int clientSocketfd = accept(this->_serverSocketfd, (struct sockaddr*)&c, &lenc);
     if (clientSocketfd == -1) {
-        std::cerr << "accept() error" << std::endl; //implement ClientException?
+        std::cerr << "accept() error" << std::endl;
         return ;
     }
     if (fcntl(clientSocketfd, F_SETFL, O_NONBLOCK) == -1) {
@@ -98,19 +98,24 @@ void Server::acceptClient(void) {
     _clients.insert(std::pair<int, Client>(clientfd.fd, Client(clientfd.fd)));
 }
 
-// also ask roman on the purpose of index_map 
-// dont think it works properly after some disconnection of client.. 
-// index does not get updated? or did i miss it?
+void Server::updateIndex(Client &client) {
+    size_t const i =_fd_index_map[client.getFd()];
+
+    for (size_t k = i + 1; k < this->_pollfds.size(); ++k) {
+        _fd_index_map[this->_pollfds[k].fd] = k - 1;
+    }
+    _fd_index_map.erase(client.getFd());
+}
 
 void Server::disconnectClient(Client &client) {
-    int const i = _fd_index_map[client.getFd()];
+    size_t const i = _fd_index_map[client.getFd()];
 
     shutdown(client.getFd(), SHUT_WR); 
-    close(this->_pollfds[i].fd);
-    _fd_index_map.erase(this->_pollfds[i].fd);
-    this->_clients.erase(this->_pollfds[i].fd);
+    close(client.getFd());
+    updateIndex(client);
+    this->_clients.erase(client.getFd());
     this->_pollfds.erase(this->_pollfds.begin() + i);
-    // + remove from channels 
+    // + remove from channels
 }
 
 void Server::handleClientCommands(Client &client)
@@ -163,7 +168,9 @@ void Server::terminateClient(ServerErrorCodes error_code, Client &client)
 // !! talk wit roman about the references, if better change??
 // after renaming receivedmsg to inmsg >> better .getreceivedmsg to .getinmsg, makes more sense
 
-void Server::receiveClientData(Client &client)
+
+//issue: when ctrl+c on clients side
+bool Server::receiveClientData(Client &client)
 {
     std::string &buffer = client.getRecvBuffer();
     char temp[512];
@@ -195,14 +202,16 @@ void Server::receiveClientData(Client &client)
             std::cout << "Client disconnected" << std::endl;
         else
             std::cerr << "recv() error" << std::endl;
-        disconnectClient(client); // Should we throw an exception?
+        disconnectClient(client);
+        return true;
     }
+    return false;
 }
 
-void Server::messageClient(Client &client) {
+bool Server::messageClient(Client &client) {
     std::vector<std::string> msgtoSend = client.getinMsg();
     if (msgtoSend[0].empty())
-        return ;
+        return false;
     std::string longMsg = "";
     for (size_t i = 0; i < msgtoSend.size(); i++) {
         longMsg += msgtoSend[i];
@@ -222,11 +231,14 @@ void Server::messageClient(Client &client) {
         else {
             std::cerr << "send() error" << std::endl;
             disconnectClient(client);
-        }  
+            return true; 
+        }
     }
+    return false;
 }
 
 void Server::finishServer(void) {
+
     //close all clients fd
     //close server fd in destructor
 
@@ -247,7 +259,11 @@ void Server::startServer(void) {
 void Server::handlePolls()
 {
     std::size_t i = 0;
+    bool iDisconnected = false;
 
+    //discuss with roman: since moved outside start server, diffrent ctrl+c behaviour
+    //is it ok according to subject?
+    
     while (i < this->_pollfds.size())
     {
         try
@@ -255,21 +271,25 @@ void Server::handlePolls()
             if (this->_pollfds[i].revents != 0)
             {
                 if (this->_pollfds[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
-                    if (this->_pollfds[i].fd == this->_serverSocketfd)
+                    if (this->_pollfds[i].fd == this->_serverSocketfd) {
                         finishServer();
+                        return ;
+                    }
                     else
                         disconnectClient(this->_clients[this->_pollfds[i].fd]);
+                        iDisconnected = true;
                 }
-                if (this->_pollfds[i].revents & POLLIN) {
+                if (!iDisconnected && this->_pollfds[i].revents & POLLIN) {
                     if (this->_pollfds[i].fd == this->_serverSocketfd)
                         acceptClient();
                     else
-                        receiveClientData(this->_clients[this->_pollfds[i].fd]);
+                        iDisconnected = receiveClientData(this->_clients[this->_pollfds[i].fd]);
                 }
-                if (this->_pollfds[i].revents & POLLOUT)
-                    messageClient(this->_clients.at(this->_pollfds[i].fd));
+                if (!iDisconnected && this->_pollfds[i].revents & POLLOUT)
+                    iDisconnected = messageClient(this->_clients.at(this->_pollfds[i].fd));
             }
-            ++i;
+            if (!iDisconnected)
+                ++i;
         }
         catch(const ClientException& e)
         {
@@ -277,7 +297,8 @@ void Server::handlePolls()
 
             // talk to roman: dont think can use while loop here to not block server
             //just send and disconnect?
-            
+            //also discuss purpose, would change ++i placement
+
             while (total < len)
             {
                 std::cout << "Sending " << e.what() + total << std::endl;
@@ -291,6 +312,7 @@ void Server::handlePolls()
             //why change it everywhere else and leave here??
 
             disconnectClient(this->_clients[this->_pollfds[i].fd]);
+            // if specific purpose (roman) add iDisconnected bool
         }
     }
 }
