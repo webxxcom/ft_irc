@@ -11,6 +11,7 @@ private:
 	std::vector<std::string>    _messages;
 	std::set<Client *>          _members;
 	std::set<Client *>          _operators;
+	std::string					_topic;
 
 	struct Mode{
 		unsigned int            _modes;
@@ -43,6 +44,7 @@ public:
 	bool							isInviteOnly()		const;
 	bool							isTopicRestricted()	const;
 	std::string const&				getKey()			const;
+	std::string						getTopic()			const;
 
 	Client *   						hasMember(std::string const& nick)    const;
 	bool                        	hasMember(Client *cl)                 const;

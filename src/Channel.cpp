@@ -12,6 +12,8 @@ std::set<Client *> const&			Channel::getMembers() 	const { return _members; }
 std::set<Client *> const&			Channel::getOperators() const { return _operators; }
 std::vector<std::string> const&		Channel::getMessages() 	const { return _messages; }
 unsigned int 						Channel::getModes() 	const { return _modes._modes; }
+std::string							Channel::getTopic()		const {	return _topic; }
+
 std::string Channel::getIrcModes() const
 {
     std::string flags;

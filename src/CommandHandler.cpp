@@ -264,6 +264,31 @@ void CommandHandler::handleInvite(Client *client, std::stringstream &command)
 
 void CommandHandler::handleTopic(Client *client, std::stringstream &command)
 {
+	std::string channelName;
+	if (command.peek() == EOF)
+		//invalid request (use 461 ERR_NEEDMOREPARAMS)
+		//:your.server.name 461 <client_nickname> TOPIC :Not enough parameters
+	std::getline(command, channelName, ' ');
+	if (channelName[0] != '#') {
+		//invalid request (use 461 ERR_NEEDMOREPARAMS) probably too
+	}
+	std::string topicMsg = command.str();
+	Channel *ch = _server._channelsByName.find(channelName);
+	if (!ch)
+		return _replyHandler.noSuchChannel(client, channelName);
+	if (!ch->hasMember(client))
+		return _replyHandler.notOnChannel(client, channelName);
+	//check the channel if topic existing
+	if (topicMsg.empty()) {
+		//just display topic
+	}
+	else //or set a new one
+	{
+		if (ch->isTopicRestricted()) {
+			//check if client is an operator or 482 ERR_CHANOPRIVSNEEDED
+			//:your.server.name 482 <client_nickname> <channel> :You're not channel operator
+		}
+	}
 
 }
 
