@@ -28,6 +28,9 @@ namespace irc
 		RPL_NAMREPLY			= 353,
 		RPL_INVITING 			= 341,
 		RPL_CHANNELMODEIS		= 324,
-		RPL_WELCOME				= 001
+		RPL_WELCOME				= 001,
+		RPL_NOTOPIC				= 331,
+		RPL_TOPIC				= 332,
+		RPL_TOPICWHOTIME		= 333
 	};
 }
