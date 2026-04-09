@@ -1,8 +1,8 @@
-#ifndef CLIENT_HPP
-#define CLIENT_HPP
+#pragma once
 
-#include "irc.hpp"
-#include <stack>
+#include <string>
+#include <vector>
+#include "ServerNotifyCodes.hpp"
 
 
 struct ClientState
@@ -17,6 +17,22 @@ struct ClientState
 class Channel;
 
 class Client {
+private:
+    ClientState                     _state; // state to check the state
+    std::string                     _realname; // added realname just because
+    int                             _fd;
+    std::string                     _nickname;
+    std::string                     _username;
+    std::string                     _address;
+    std::string                     _buffer;
+    std::vector<std::string>        _outMsg; // changed vector to stack to efficiently pop the elems
+    std::vector<std::string>        _inMsg;
+    std::vector<Channel *>          _invitedTo;
+public:
+
+    struct NickEquals {
+        NickEquals(std::string const& target) {_target = target; };
+        bool operator()(Client const* cl) {return cl->getNickname() == _target; }
     private:
         ClientState                     _state; // state to check the state
         std::string                     _realname; // added realname just because
@@ -28,38 +44,47 @@ class Client {
         std::queue<std::string>         _outMsg;
         std::queue<std::string>         _inMsg;
     public:
+        std::string _target;
+    };
 
-        // Constructors
-        Client();
-        Client(int fd);
-        Client(const Client &orig);
-        Client&operator=(const Client &orig);
-        ~Client();
+    // Constructors
+    Client();
+    Client(int fd);
+    Client(const Client &orig);
+    Client&operator=(const Client &orig);
+    ~Client();
 
-        // Getters
-        std::queue<std::string>& getReceivedMessages();
-        std::string &getRecvBuffer();
-        const std::string& getNickname() const;
-        std::string getIrcNickname() const;
-        const std::string& getUsername() const;
-        const std::string& getRealname() const;
-        int getFd() const;
-        bool isRegistered() const;
-        bool hasNickname() const;
+    bool operator==(Client const& other) const;
 
-        // Setters
-        void setNickname(std::string const& nickname);
-        void setPassword(std::string const& password);
-        void setUsername(std::string const& username);
-        void setRealname(std::string const& username);
-        
-        std::queue<std::string> getinMsg(void) const;
-        void clearinMsg();
-        void addinMsg(std::string remainder);
-        void addtoBuffer(std::string msg); //needed after Roman change??
+    // Getters
+    std::queue<std::string>& getReceivedMessages();
+    std::string &getRecvBuffer();
+    const std::string& getNickname() const;
+    std::string getIrcNickname() const;
+    std::string getFullUserPrefix() const;
+    const std::string& getUsername() const;
+    const std::string& getRealname() const;
+    int getFd() const;
+    bool isRegistered() const;
+    bool hasNickname() const;
 
-        void receiveMsg(std::string const& msg);
-        bool isChannelOperator(Channel const& ch);
+    std::queue<std::string> getinMsg(void) const;
+    void clearinMsg();
+    void addinMsg(std::string remainder);
+    void addtoBuffer(std::string msg); //needed after Roman change??
+
+    bool isRegistered() const;
+    bool hasNickname() const;
+    bool isInvitedTo(Channel *ch) const;
+
+    // Setters
+    void setNickname(std::string const& nickname);
+    void setPassword(std::string const& password);
+    void setUsername(std::string const& username);
+    void setRealname(std::string const& username);
+    void getsInvitedTo(Channel *ch);
+    
+    void receiveMsg(std::string const& msg);
+
+    friend class Tester;
 } ;
-
-#endif

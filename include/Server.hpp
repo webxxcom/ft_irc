@@ -1,31 +1,45 @@
-#ifndef SERVER_HPP
-#define SERVER_HPP
+#pragma once
 
-#include "irc.hpp"
+#include <poll.h>
+#include <sys/types.h>
+#include <csignal>
+
+#include "AdvancedMap.hpp"
+#include "Client.hpp"
+#include "CommandHandler.hpp"
 #include "Channel.hpp"
+#include "Exceptions.hpp"
+#include "ServerNotifyCodes.hpp"
+#include "ReplyHandler.hpp"
 
-enum ServerErrorCodes
-{
-	ERR_PASSWDMISMATCH = 464,
-	ERR_NOTREGISTERED = 451,
-	ERR_ALREADYREGISTERED = 462,
-	KICK = 0xbbbb
-};
+extern volatile sig_atomic_t g_serverRunning; // ! maybe move to Server class
 
 class Server {
 	private:
-		typedef void (Server::*CommandHandler)(Client&, std::stringstream&);
+		struct CompareByFd
+		{   
+			int _fd;
+			CompareByFd(int fd) : _fd(fd) {}
+			bool operator()(pollfd const& o) { return (o.fd == _fd); }
+		};
 
-		std::map<std::string, CommandHandler>   _command_map; // map of commands
+		friend class CommandHandler;
+		CommandHandler 							_commandHandler;
+		ReplyHandler							_replyHandler;
 		std::string     			            _password;
 		int             			            _port;
 		int           				            _serverSocketfd;
 		std::vector<struct pollfd>              _pollfds;
-		std::map<int, size_t>                   _fd_index_map; // get the client index in the pollfds by its fd
-		std::map<int, Client>		            _clients;
-		std::map<std::string, Channel>          _channels;
 
-		void setupCommands();
+		// Channels storage
+		std::vector<Channel *>					_channels; // the pointers owner
+		AdvancedMap<std::string, Channel *>		_channelsByName;
+
+		// Clients storage
+		std::vector<Client *>					_clients; // the pointers owner
+		std::map<int, Client *>					_clientsByFd;
+		AdvancedMap<std::string, Client *>		_clientsByName;
+
 		int parseArgs(int ac, char *av[]);
 
 		void setupServer();
@@ -33,29 +47,23 @@ class Server {
 		bool receiveClientData(Client &client);
 		bool messageClient(Client &client);
 		void disconnectClient(Client &client); // Renamed removeClient to disconnectClient
-		void updateIndex(Client &client);
-		void handleClientCommands(Client &client);
 
 		void handlePolls();
+		Channel *createChannel(Client *cl, std::string const& name);
 
 		// Commands
-		void handlePass(Client& client, std::stringstream& command);
-		void handleUser(Client& client, std::stringstream& command);
-		void handleNick(Client& client, std::stringstream& command);
-		void handleCap(Client& client, std::stringstream& command);
-		void handleJoin(Client& client, std::stringstream& command);
-		void handleKick(Client& client, std::stringstream& command);
-		void handleInvite(Client& client, std::stringstream& command);
-		void handleTopic(Client& client, std::stringstream& command);
-		void handleMode(Client& client, std::stringstream& command);
-
-		void terminateClient(ServerErrorCodes error_code, Client &client);
 		Server(const Server &);
 	public:
 		Server(int ac, char *av[]);
 		~Server();
 		void startServer();
 		void finishServer();
+
+		// TEST FUNCTION
+		friend class Tester;
+
+		AdvancedMap<std::string, Channel *> const& 	getChannelsByName() const;
+		std::vector<Channel *> const&				getChannels() 		const;
 } ;
 
 enum returned {
@@ -63,5 +71,3 @@ enum returned {
 	PORT_NUM_INVALID,
 	OK,
 } ;
-
-#endif

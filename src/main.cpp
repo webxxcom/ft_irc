@@ -1,6 +1,6 @@
 
-#include "irc.hpp"
 #include "Server.hpp"
+#include <iostream>
 
 volatile sig_atomic_t g_serverRunning = 1; // Can move it to Server class?
 
