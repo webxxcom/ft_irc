@@ -44,7 +44,7 @@ class Server {
 
 		void setupServer();
 		void acceptClient();
-		bool receiveClientData(Client &client);
+		bool receiveClientData(Client *client);
 		bool messageClient(Client &client);
 		void disconnectClient(Client &client); // Renamed removeClient to disconnectClient
 

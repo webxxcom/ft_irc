@@ -10,8 +10,9 @@ date: 4/6/2026
 #include <sstream>
 #include "Exceptions.hpp"
 #include "Channel.hpp"
+#include "Server.hpp"
 
-ReplyHandler::ReplyHandler() { }
+ReplyHandler::ReplyHandler(Server &server) :_server(server) { }
 ReplyHandler::~ReplyHandler() { }
 
 using namespace irc;
@@ -260,4 +261,5 @@ void ReplyHandler::handle(irc::ServerNotifyCodes code, Client *client, std::stri
     }
     msg << "\r\n";
     client->receiveMsg(msg.str());
+    _server._pollfds;
 }

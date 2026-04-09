@@ -8,11 +8,14 @@ Date: 4/6/2026
 #pragma once
 
 #include "ServerNotifyCodes.hpp"
-#include "Client.hpp"
+#include <string>
+
+class Server;
+class Client;
 
 class ReplyHandler {
 public:
-    ReplyHandler();
+    ReplyHandler(Server &server);
     ~ReplyHandler();
 
     void erroneusNick(Client *client, const std::string &nick) const;
@@ -53,4 +56,5 @@ public:
 private:
     void handle(irc::ServerNotifyCodes code, Client *client, std::string const& extra = "") const;
 
+    Server &_server;
 };

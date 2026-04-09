@@ -108,6 +108,7 @@ std::queue<std::string> Client::getinMsg(void) const {
 void Client::receiveMsg(std::string const &msg)
 {
     _inMsg.push(msg);
+    std::find()
 }
 
 void Client::clearinMsg(void) {

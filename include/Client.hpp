@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include "ServerNotifyCodes.hpp"
+#include <queue>
 
 
 struct ClientState
@@ -25,24 +26,13 @@ private:
     std::string                     _username;
     std::string                     _address;
     std::string                     _buffer;
-    std::vector<std::string>        _outMsg; // changed vector to stack to efficiently pop the elems
-    std::vector<std::string>        _inMsg;
+    std::queue<std::string>         _outMsg;
+    std::queue<std::string>         _inMsg;
     std::vector<Channel *>          _invitedTo;
 public:
-
     struct NickEquals {
         NickEquals(std::string const& target) {_target = target; };
-        bool operator()(Client const* cl) {return cl->getNickname() == _target; }
-    private:
-        ClientState                     _state; // state to check the state
-        std::string                     _realname; // added realname just because
-        int                             _fd;
-        std::string                     _nickname;
-        std::string                     _username;
-        std::string                     _address;
-        std::string                     _buffer;
-        std::queue<std::string>         _outMsg;
-        std::queue<std::string>         _inMsg;
+        bool operator()(Client const* cl) { return cl->getNickname() == _target; }
     public:
         std::string _target;
     };
@@ -71,7 +61,6 @@ public:
     std::queue<std::string> getinMsg(void) const;
     void clearinMsg();
     void addinMsg(std::string remainder);
-    void addtoBuffer(std::string msg); //needed after Roman change??
 
     bool isRegistered() const;
     bool hasNickname() const;
