@@ -5,30 +5,39 @@
 #include <set>
 #include "Client.hpp"
 
+struct ChannelTopic{
+		std::string					_text;
+		std::string					_setby;
+		std::string					_time;
+	} ;
+
 class Channel {
-private:
-	std::string                 _name;
-	std::vector<std::string>    _messages;
-	std::set<Client *>          _members;
-	std::set<Client *>          _operators;
-	std::string					_topic;
+	private:
+		std::string                 _name;
+		std::vector<std::string>    _messages;
+		std::set<Client *>          _members;
+		std::set<Client *>          _operators;
+		ChannelTopic 				_topic;
 
-	struct Mode{
-		unsigned int            _modes;
-		size_t               	_userLimit;
-		std::string             _key;
 
-		Mode() : _modes(0), _userLimit(0) { }
-	} _modes;
+		struct Mode{
+			unsigned int            _modes;
+			size_t               	_userLimit;
+			std::string             _key;
+
+			Mode() : _modes(0), _userLimit(0) { }
+		} _modes;
+
+		
+	public:
+		enum ChannelModes {
+			E_INVITE_ONLY = 0x1,
+			E_TOPIC_RESTRICT = 0x2,
+			E_CHANNEL_KEY = 0x4,
+			E_USER_LIMIT = 0x8
+		};
 
 	
-public:
-	enum ChannelModes {
-		E_INVITE_ONLY = 0x1,
-		E_TOPIC_RESTRICT = 0x2,
-		E_CHANNEL_KEY = 0x4,
-		E_USER_LIMIT = 0x8
-	};
 
 	Channel(std::string const& name);
 	Channel(Client *creator, std::string const& name);
@@ -44,7 +53,7 @@ public:
 	bool							isInviteOnly()		const;
 	bool							isTopicRestricted()	const;
 	std::string const&				getKey()			const;
-	std::string						getTopic()			const;
+	const ChannelTopic&				getTopic()			const;
 
 	Client *   						hasMember(std::string const& nick)    const;
 	bool                        	hasMember(Client *cl)                 const;
@@ -62,6 +71,8 @@ public:
 	void makeUserLimit(size_t l);
 	void makeKey(std::string const& key);
 	void removeMode(unsigned int mode);
+
+	void setTopic(std::string const& topic, Client* cl);
 
 	void broadcast(std::string const& msg);
 };

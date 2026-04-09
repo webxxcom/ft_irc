@@ -10,6 +10,8 @@ Date: 4/6/2026
 #include "ServerNotifyCodes.hpp"
 #include "Client.hpp"
 
+struct ChannelTopic;
+
 class ReplyHandler {
 public:
     ReplyHandler();
@@ -49,6 +51,10 @@ public:
 
     void nameReply(Client* client, Channel *channel) const;
     void endOfNames(Client* client, const std::string& channelName) const;
+
+    void topicEmpty(Client* client,  const std::string& channelName) const;
+    void currentTopic(Client* client,const std::string& channelName, std::string const& topic) const;
+    void currentTopicInfo(Client* client, const std::string& channelName, ChannelTopic const& topic) const;
 
 private:
     void handle(irc::ServerNotifyCodes code, Client *client, std::string const& extra = "") const;

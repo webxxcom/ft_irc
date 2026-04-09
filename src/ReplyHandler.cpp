@@ -166,6 +166,20 @@ void ReplyHandler::channelIsFull(Client *client, std::string const &channelName)
     handle(ERR_CHANNELISFULL, client, channelName);
 }
 
+void ReplyHandler::topicEmpty(Client *client, std::string const &channelName) const {
+    handle(RPL_NOTOPIC, client, channelName);
+}
+
+void ReplyHandler::currentTopic(Client* client, std::string const &channelName, std::string const &topic) const {
+    std::string extra = channelName + " :" + topic;
+    handle(RPL_TOPIC, client, extra);
+}
+
+void ReplyHandler::currentTopicInfo(Client* client, std::string const& channelName, ChannelTopic const& topic) const {
+    std::string extra = channelName + " " + topic._setby + " " + topic._time;
+    handle(RPL_TOPICWHOTIME, client, extra);
+}
+
 // Errors are divided into two types: the ones which disconnect the client 
 //  and the ones which just send them the error occured to the client.
 void ReplyHandler::handle(irc::ServerNotifyCodes code, Client *client, std::string const &extra) const
@@ -253,6 +267,15 @@ void ReplyHandler::handle(irc::ServerNotifyCodes code, Client *client, std::stri
             break;
         case RPL_WELCOME:
             msg << extra << " :Welcome to the IRC server";
+            break;
+        case RPL_NOTOPIC:
+            msg << extra << " :No topic is set";
+            break;
+        case RPL_TOPIC:
+            msg << extra;
+            break;
+        case RPL_TOPICWHOTIME:
+            msg << extra;
             break;
         default:
             msg << ":Unknown error";

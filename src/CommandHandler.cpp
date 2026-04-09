@@ -2,6 +2,7 @@
 #include "Server.hpp"
 #include <cstdlib>
 #include <iostream>
+#include <cstdio>
 
 using namespace irc;
 
@@ -264,32 +265,47 @@ void CommandHandler::handleInvite(Client *client, std::stringstream &command)
 
 void CommandHandler::handleTopic(Client *client, std::stringstream &command)
 {
-	std::string channelName;
+	std::string channelName, newTopic;
 	if (command.peek() == EOF)
-		//invalid request (use 461 ERR_NEEDMOREPARAMS)
-		//:your.server.name 461 <client_nickname> TOPIC :Not enough parameters
+		return _replyHandler.needMoreParams(client, "TOPIC");
 	std::getline(command, channelName, ' ');
-	if (channelName[0] != '#') {
-		//invalid request (use 461 ERR_NEEDMOREPARAMS) probably too
-	}
-	std::string topicMsg = command.str();
+	if (channelName[0] != '#')
+		return _replyHandler.needMoreParams(client, "TOPIC");
+
 	Channel *ch = _server._channelsByName.find(channelName);
 	if (!ch)
 		return _replyHandler.noSuchChannel(client, channelName);
 	if (!ch->hasMember(client))
 		return _replyHandler.notOnChannel(client, channelName);
-	//check the channel if topic existing
-	if (topicMsg.empty()) {
-		//just display topic
-	}
-	else //or set a new one
-	{
-		if (ch->isTopicRestricted()) {
-			//check if client is an operator or 482 ERR_CHANOPRIVSNEEDED
-			//:your.server.name 482 <client_nickname> <channel> :You're not channel operator
-		}
+
+	std::getline(command, newTopic);
+	if (!newTopic.empty() && newTopic[newTopic.length() - 1] == '\r')
+		newTopic.erase(newTopic.length() - 1);
+	if (!newTopic.empty() && newTopic[0] == ' ') {
+        size_t pos = newTopic.find_first_not_of(" ");
+		newTopic.erase(0, pos);
 	}
 
+	const ChannelTopic& currentTopic = ch->getTopic();
+	if (newTopic.empty()) {
+		if (currentTopic._text.empty())
+			return _replyHandler.topicEmpty(client, channelName);
+		_replyHandler.currentTopic(client, channelName, currentTopic._text);
+		return _replyHandler.currentTopicInfo(client, channelName, currentTopic);
+	}
+	else if (newTopic[0] == ':') {
+		if (ch->isTopicRestricted() && !ch->hasOperator(client))
+			return _replyHandler.chanOpPrivsNeeded(client, channelName);
+		newTopic.erase(0,1);
+
+		ch->setTopic(newTopic, client);
+		std::string msg;
+		msg = ":" + client->getFullUserPrefix() + " TOPIC " + channelName + " :" + newTopic + "\r\n"; 
+		ch->broadcast(msg);
+	}
+	else { //maybe irc allows wihtout : if topic is set to one word
+		
+	}
 }
 
 void CommandHandler::handleMode(Client *client, std::stringstream &command)
