@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <limits>
 #include <sstream>
+#include <ctime>
 
 Channel::Channel(std::string const &name) : _name(name) { }
 Channel::Channel(Client *creator, std::string const &name) : _name(name) { addOperator(creator); }
@@ -12,6 +13,8 @@ std::set<Client *> const&			Channel::getMembers() 	const { return _members; }
 std::set<Client *> const&			Channel::getOperators() const { return _operators; }
 std::vector<std::string> const&		Channel::getMessages() 	const { return _messages; }
 unsigned int 						Channel::getModes() 	const { return _modes._modes; }
+const ChannelTopic&					Channel::getTopic()		const {	return _topic; }
+
 std::string Channel::getIrcModes() const
 {
     std::string flags;
@@ -110,4 +113,11 @@ void Channel::broadcast(std::string const &msg)
 {
 	for (std::set<Client *>::iterator it = _members.begin(); it != _members.end(); ++it)
 		(*it)->receiveMsg(msg);
+}
+
+void Channel::setTopic(std::string const& topic, Client* cl) {
+	this->_topic._text = topic;
+	this->_topic._setby = cl->getNickname();
+	std::time_t currentTime = std::time(NULL);
+	this->_topic._time = currentTime;
 }
