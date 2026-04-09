@@ -62,6 +62,19 @@ bool Client::isInvitedTo(Channel *ch) const
     return std::find(_invitedTo.begin(), _invitedTo.end(), ch) != _invitedTo.end();
 }
 
+void Client::addtoBuffer(std::string msg) {
+    this->_buffer.append(msg);
+    // std::cout << "buffer: " << this->_buffer << std::endl;
+    // std::cout << "msg: " << msg << std::endl;
+    // std::cout << "pass: " << this->_outMsg << std::endl;
+    size_t endMsg;
+    while ((endMsg = this->_buffer.find("\r\n")) != std::string::npos) {
+        std::string singleMsg = this->_buffer.substr(0, endMsg);
+        this->_outMsg.push(singleMsg);
+        this->_buffer.erase(0, endMsg + 2);
+    }
+}
+
 void Client::setPassword(std::string const&)
 {
     _state.pass_ok = true;
@@ -86,7 +99,7 @@ void Client::setNickname(std::string const& nickname)
     _state.has_nick = true;
 }
 
-std::queue<std::string> Client::getinMsg(void) const {
+std::queue<std::string> Client::getInMsg(void) const {
     return this->_inMsg;
 }
 
@@ -108,7 +121,11 @@ std::queue<std::string> Client::getinMsg(void) const {
 void Client::receiveMsg(std::string const &msg)
 {
     _inMsg.push(msg);
-    std::find()
+}
+
+void Client::clearOutMsg(void) {
+
+    _outMsg = std::queue<std::string>();
 }
 
 void Client::clearinMsg(void) {

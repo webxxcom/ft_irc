@@ -104,7 +104,7 @@ void Server::disconnectClient(Client &client) {
     std::remove_if(_pollfds.begin(), _pollfds.end(), CompareByFd(client.getFd()));
     _clientsByFd.erase(client.getFd());
     _clientsByName.erase(client.getNickname());
-    _clients.erase(std::find(_clients.begin(), _clients.end(), client));
+    _clients.erase(std::find(_clients.begin(), _clients.end(), &client));
     // delete client; // !!!
 }
 
@@ -132,8 +132,7 @@ bool Server::receiveClientData(Client *client)
 
         if (client->isRegistered()) {
             _replyHandler.welcome(client);
-            //size_t i = _fd_index_map[client.getFd()]; // !!!!
-            ///this->_pollfds[i].events = POLLIN | POLLOUT;
+            std::find_if(_pollfds.begin(), _pollfds.end(), CompareByFd(client->getFd()))->events = POLLIN | POLLOUT;
         }
     }
     else
@@ -149,9 +148,9 @@ bool Server::receiveClientData(Client *client)
 }
 
 bool Server::messageClient(Client &client) {
-    std::vector<struct pollfd>::iterator it = std::find(_pollfds.begin(), _pollfds.end(), CompareByFd(client.getFd()));
+    std::vector<struct pollfd>::iterator it = _pollfds.begin();
 
-    std::queue<std::string> msgtoSend = client.getinMsg();
+    std::queue<std::string> msgtoSend = client.getInMsg();
     if (msgtoSend.empty()) {
         it->events = POLLIN;
         return false;
@@ -239,17 +238,17 @@ void Server::handlePolls()
                         return ;
                     }
                     else
-                        disconnectClient(*this->_clients[this->_pollfds[i].fd]);
+                        disconnectClient(*this->_clientsByFd[this->_pollfds[i].fd]);
                         iDisconnected = true;
                 }
                 if (!iDisconnected && this->_pollfds[i].revents & POLLIN) {
                     if (this->_pollfds[i].fd == this->_serverSocketfd)
                         acceptClient();
                     else
-                        iDisconnected = receiveClientData(this->_clients[this->_pollfds[i].fd]);
+                        iDisconnected = receiveClientData(this->_clientsByFd[this->_pollfds[i].fd]);
                 }
                 if (!iDisconnected && this->_pollfds[i].revents & POLLOUT)
-                    iDisconnected = messageClient(*this->_clients.at(this->_pollfds[i].fd));
+                    iDisconnected = messageClient(*this->_clientsByFd.at(this->_pollfds[i].fd));
             }
             // if (!iDisconnected)
             //     ++i;

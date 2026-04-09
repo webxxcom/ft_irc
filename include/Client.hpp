@@ -58,13 +58,13 @@ public:
     bool isRegistered() const;
     bool hasNickname() const;
 
-    std::queue<std::string> getinMsg(void) const;
+    std::queue<std::string> getInMsg(void) const;
     void clearinMsg();
+    void clearOutMsg(void);
     void addinMsg(std::string remainder);
 
-    bool isRegistered() const;
-    bool hasNickname() const;
     bool isInvitedTo(Channel *ch) const;
+    void addtoBuffer(std::string msg);
 
     // Setters
     void setNickname(std::string const& nickname);

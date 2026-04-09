@@ -25,15 +25,14 @@ CommandHandler::CommandHandler(Server& server, ReplyHandler &rh) : _server(serve
 
 void CommandHandler::handle(Client *cl)
 {
-	std::vector<std::string> &mssgs = cl->getReceivedMessages();
+	std::queue<std::string> mssgs = cl->getReceivedMessages();
 
 	while (!mssgs.empty())
 	{
 		// Get the whole line
 		std::stringstream line;
 		line << mssgs.front();
-		std::vector<std::string> cpy(mssgs.begin() + 1, mssgs.end());
-		mssgs = cpy;
+		mssgs.pop();
 
 		// Extract single command
 		std::string command;
@@ -46,6 +45,7 @@ void CommandHandler::handle(Client *cl)
 		else
 			_replyHandler.unknownCommand(cl, command);
 	}
+	cl->clearOutMsg();
 }
 
 void CommandHandler::handlePass(Client *client, std::stringstream &command)
@@ -57,6 +57,7 @@ void CommandHandler::handlePass(Client *client, std::stringstream &command)
 		_replyHandler.passwdMismatch(client);
 	else
 		client->setPassword(word);
+	std::cout << "Handled PASS\n";
 }
 
 void CommandHandler::handleUser(Client *client, std::stringstream& command)
@@ -74,6 +75,7 @@ void CommandHandler::handleUser(Client *client, std::stringstream& command)
 	// Real name
 	std::getline(command, word, ' ');
 	client->setRealname(word);
+	std::cout << "Handled user\n";
 }
 
 bool isValidNick(const std::string& nick)
@@ -120,6 +122,7 @@ void CommandHandler::handleNick(Client *client, std::stringstream& command)
 	}
 	else
 		_replyHandler.nicknameAlreadyInUse(client, nick);
+	std::cout << "Handled NICK\n";
 }
 
 void CommandHandler::handleCap(Client *client, std::stringstream& command)

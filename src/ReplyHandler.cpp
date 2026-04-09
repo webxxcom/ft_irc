@@ -11,8 +11,9 @@ date: 4/6/2026
 #include "Exceptions.hpp"
 #include "Channel.hpp"
 #include "Server.hpp"
+#include <iostream>
 
-ReplyHandler::ReplyHandler(Server &server) :_server(server) { }
+ReplyHandler::ReplyHandler()  { }
 ReplyHandler::~ReplyHandler() { }
 
 using namespace irc;
@@ -260,6 +261,7 @@ void ReplyHandler::handle(irc::ServerNotifyCodes code, Client *client, std::stri
             break;
     }
     msg << "\r\n";
+    std::cout << "Sending" << msg.str();
     client->receiveMsg(msg.str());
-    _server._pollfds;
+    _server.clientIsReady(client);
 }

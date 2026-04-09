@@ -12,10 +12,11 @@ Date: 4/6/2026
 
 class Server;
 class Client;
+class Channel;
 
 class ReplyHandler {
 public:
-    ReplyHandler(Server &server);
+    ReplyHandler();
     ~ReplyHandler();
 
     void erroneusNick(Client *client, const std::string &nick) const;
@@ -56,5 +57,4 @@ public:
 private:
     void handle(irc::ServerNotifyCodes code, Client *client, std::string const& extra = "") const;
 
-    Server &_server;
 };
