@@ -12,8 +12,9 @@ date: 4/6/2026
 #include "Channel.hpp"
 #include "Server.hpp"
 #include <iostream>
+#include <iomanip>
 
-ReplyHandler::ReplyHandler()  { }
+ReplyHandler::ReplyHandler(Server &server) : _server(server) { }
 ReplyHandler::~ReplyHandler() { }
 
 using namespace irc;
@@ -56,6 +57,16 @@ void ReplyHandler::alreadyOnChannel(Client *client, const std::string &inviteeNa
 void ReplyHandler::userNotInChannel(Client *client, const std::string &nick, const std::string &channelName) const
 {
     handle(ERR_USERNOTINCHANNEL, client, nick + " " + channelName);
+}
+
+void ReplyHandler::noRecipient(Client *client, std::string const &command) const
+{
+    handle(ERR_NORECIPIENT, client, command);
+}
+
+void ReplyHandler::noTextToSend(Client *client)
+{
+    handle(ERR_NOTEXTTOSEND, client);
 }
 
 void ReplyHandler::inviteOnlyChannel(Client *client, std::string const &channelName) const
@@ -113,9 +124,15 @@ void ReplyHandler::passwdMismatch(Client *client) const
     handle(ERR_PASSWDMISMATCH, client);
 }
 
+void ReplyHandler::pong(Client* client, std::string const &token) const
+{
+    handle(RPL_PONG, client, token);
+}
+
 void ReplyHandler::welcome(Client *client) const
 {
     handle(RPL_WELCOME, client);
+    client->setWasWelcomed(true);
 }
 
 void ReplyHandler::channelModeIs(Client *client, const std::string &channelName, const std::string &modes) const
@@ -187,7 +204,7 @@ void ReplyHandler::currentTopicInfo(Client* client, std::string const& channelNa
 void ReplyHandler::handle(irc::ServerNotifyCodes code, Client *client, std::string const &extra) const
 {
     std::stringstream msg;
-    msg << ":server " << (int)code << " " + client->getIrcNickname();
+    msg << ":server " << std::setw(3) << std::setfill('0') << (int)code << " " + client->getIrcNickname();
     if (!extra.empty())
         msg << " ";
 
@@ -211,6 +228,12 @@ void ReplyHandler::handle(irc::ServerNotifyCodes code, Client *client, std::stri
             break;
         case ERR_NICKNAMEINUSE:
             msg << extra << " :Nickname is already in use";
+            break;
+        case ERR_NORECIPIENT:
+            msg << " :No recipient given " << extra;
+            break;
+        case ERR_NOTEXTTOSEND:
+            msg << " :No text to send";
             break;
         case ERR_ERRONEUSNICKNAME:
             msg << extra << " :Erroneous nickname";
@@ -255,6 +278,10 @@ void ReplyHandler::handle(irc::ServerNotifyCodes code, Client *client, std::stri
             msg << extra << " :Not enough parameters";
             break;
 
+        case RPL_PONG:
+            msg.str(""); msg.clear();
+            msg << ":server PONG server :" << extra;
+            break;
         case RPL_INVITING:
             msg << extra;
             break;
@@ -280,11 +307,10 @@ void ReplyHandler::handle(irc::ServerNotifyCodes code, Client *client, std::stri
             msg << extra;
             break;
         default:
-            msg << ":Unknown error";
+            msg << ":ServerNotifyCode was not implemented for this code";
             break;
     }
     msg << "\r\n";
-    std::cout << "Sending" << msg.str();
     client->receiveMsg(msg.str());
-    _server.clientIsReady(client);
+    //_server.clientIsReady(client);
 }

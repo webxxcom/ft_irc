@@ -18,7 +18,7 @@ struct ChannelTopic;
 
 class ReplyHandler {
 public:
-    ReplyHandler();
+    ReplyHandler(Server &server);
     ~ReplyHandler();
 
     void erroneusNick(Client *client, const std::string &nick) const;
@@ -29,6 +29,8 @@ public:
     void notOnChannel(Client* client, const std::string& channelName) const;
     void alreadyOnChannel(Client* client, const std::string &inviteeName, const std::string& channelName) const;
     void userNotInChannel(Client* client, const std::string& nick, const std::string& channelName) const;
+    void noRecipient(Client *client, std::string const& command) const;
+    void noTextToSend(Client *client);
 
     void channelIsFull(Client* client, const std::string& channelName) const;
     void inviteOnlyChannel(Client* client, const std::string& channelName) const;
@@ -48,6 +50,7 @@ public:
     void passwdMismatch(Client* client) const;
 
     // Replies
+    void pong(Client* client, std::string const& token) const;
     void welcome(Client* client) const;
     void channelModeIs(Client* client, const std::string& channelName, const std::string& modes) const;
 
@@ -63,4 +66,5 @@ public:
 private:
     void handle(irc::ServerNotifyCodes code, Client *client, std::string const& extra = "") const;
 
+    Server &_server;
 };

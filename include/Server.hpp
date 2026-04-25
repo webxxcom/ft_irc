@@ -24,11 +24,11 @@ class Server {
 		};
 
 		friend class CommandHandler;
+		int           				            _serverSocketfd;
 		CommandHandler 							_commandHandler;
 		ReplyHandler							_replyHandler;
 		std::string     			            _password;
 		int             			            _port;
-		int           				            _serverSocketfd;
 		std::vector<struct pollfd>              _pollfds;
 
 		// Channels storage
@@ -45,8 +45,8 @@ class Server {
 		void setupServer();
 		void acceptClient();
 		bool receiveClientData(Client *client);
-		bool messageClient(Client &client);
-		void disconnectClient(Client &client); // Renamed removeClient to disconnectClient
+		bool messageClient(Client *client);
+		void disconnectClient(Client *client);
 
 		void handlePolls();
 		Channel *createChannel(Client *cl, std::string const& name);

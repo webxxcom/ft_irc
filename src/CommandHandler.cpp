@@ -17,6 +17,7 @@ void CommandHandler::setupCommands()
 	_commandMap["TOPIC"]    = &CommandHandler::handleTopic;
 	_commandMap["MODE"]     = &CommandHandler::handleMode;
 	_commandMap["PRIVMSG"]  = &CommandHandler::handlePrivmsg;
+	_commandMap["PING"]  	= &CommandHandler::handlePing;
 }
 
 CommandHandler::CommandHandler(Server& server, ReplyHandler &rh) : _server(server), _replyHandler(rh)
@@ -26,7 +27,8 @@ CommandHandler::CommandHandler(Server& server, ReplyHandler &rh) : _server(serve
 
 void CommandHandler::handle(Client *cl)
 {
-	std::queue<std::string> mssgs = cl->getReceivedMessages();
+	std::queue<std::string> mssgs = cl->getOutMssgs();
+	cl->clearOutMssgs();
 
 	while (!mssgs.empty())
 	{
@@ -46,7 +48,6 @@ void CommandHandler::handle(Client *cl)
 		else
 			_replyHandler.unknownCommand(cl, command);
 	}
-	cl->clearOutMsg();
 }
 
 void CommandHandler::handlePass(Client *client, std::stringstream &command)
@@ -58,7 +59,6 @@ void CommandHandler::handlePass(Client *client, std::stringstream &command)
 		_replyHandler.passwdMismatch(client);
 	else
 		client->setPassword(word);
-	std::cout << "Handled PASS\n";
 }
 
 void CommandHandler::handleUser(Client *client, std::stringstream& command)
@@ -76,7 +76,6 @@ void CommandHandler::handleUser(Client *client, std::stringstream& command)
 	// Real name
 	std::getline(command, word, ' ');
 	client->setRealname(word);
-	std::cout << "Handled user\n";
 }
 
 bool isValidNick(const std::string& nick)
@@ -123,7 +122,6 @@ void CommandHandler::handleNick(Client *client, std::stringstream& command)
 	}
 	else
 		_replyHandler.nicknameAlreadyInUse(client, nick);
-	std::cout << "Handled NICK\n";
 }
 
 void CommandHandler::handleCap(Client *client, std::stringstream& command)
@@ -133,7 +131,11 @@ void CommandHandler::handleCap(Client *client, std::stringstream& command)
 	std::getline(command, word, ' ');
 	if (word == "LS")
 		client->receiveMsg(":server CAP * LS :\r\n"); // No capabilities
-	else // Do not support any other than LS
+	else if (word == "REQ")
+		client->setIsCapNegotiating(true);
+	else if (word == "END")
+		client->setIsCapNegotiating(false);
+	else
 		_replyHandler.unknownCommand(client, word);
 }
 
@@ -186,7 +188,7 @@ void CommandHandler::handleJoin(Client *client, std::stringstream &command)
 			}
 		}
 		std::string msg = 
-			":" + client->getFullUserPrefix() + " JOIN " + channelName;
+			":" + client->getFullUserPrefix() + " JOIN " + channelName + "\r\n";
 		ch->addMember(client);
 		ch->broadcast(msg);
 		_replyHandler.nameReply(client, ch);
@@ -194,8 +196,34 @@ void CommandHandler::handleJoin(Client *client, std::stringstream &command)
 	}
 }
 
+//PRIVMSG <target> :<message>
 void CommandHandler::handlePrivmsg(Client *client, std::stringstream &command)
 {
+	std::string target, message;
+
+	std::getline(command, target, ' ');
+	std::getline(command, message, ' ');
+
+	if (message.empty())
+		return _replyHandler.noTextToSend(client);
+
+	if (target.empty())
+		return _replyHandler.noRecipient(client, "PRIVMSG");
+
+	if (target[0] == '#')
+	{
+		Channel *ch = _server._channelsByName.find(target);
+		if (!ch)
+			return _replyHandler.noSuchChannel(client, target);
+		ch->broadcast(client->getFullUserPrefix() + " PRIVMSG " + target + " " + message + "\r\n");
+	}
+	else
+	{
+		Client *cl = _server._clientsByName.find(target);
+		if (!cl)
+			return _replyHandler.noSuchNick(client, target);
+		client->receiveMsg(client->getFullUserPrefix() + " PRIVMSG " + target + " " + message + "\r\n");
+	}
 }
 
 // KICK <channel> <client> :[<message>]
@@ -430,6 +458,14 @@ void CommandHandler::handleMode(Client *client, std::stringstream &command)
 		if (!target)
 			return ;
 	}
+}
+
+void CommandHandler::handlePing(Client *client, std::stringstream &command)
+{
+	std::string token;
+
+	std::getline(command, token, ' ');
+	_replyHandler.pong(client, token);
 }
 
 Client *CommandHandler::clientLooksFor(Client *client, std::string const &nick) const

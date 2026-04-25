@@ -12,127 +12,103 @@ ClientState::ClientState() : pass_ok(false), has_nick(false), has_user(false) { 
 Client::Client() : _state() {}
 Client::Client(int fd) : _state(), _fd(fd)
 {
-    std::cout << "Client connected" << std::endl;
+	std::cout << "Client connected" << std::endl;
 }
 
 Client::Client(const Client &other) { *this = other; }
 
 Client &Client::operator=(const Client &other)
 {
-    _state = other._state;
-    _realname = other._realname;
-    _fd = other._fd;
-    _nickname = other._nickname;
-    _username = other._username;
-    _address = other._address;
-    _buffer = other._buffer;
-    _outMsg = other._outMsg;
-    _inMsg = other._inMsg;
-    
-    return *this;
+	_state = other._state;
+	_realname = other._realname;
+	_fd = other._fd;
+	_nickname = other._nickname;
+	_username = other._username;
+	_address = other._address;
+	_buffer = other._buffer;
+	_outMsg = other._outMsg;
+	_inMsg = other._inMsg;
+	
+	return *this;
 }
 
 Client::~Client() {
-    // std::cout << "Client disconnected" << std::endl;
+	// std::cout << "Client disconnected" << std::endl;
 }
 
 bool Client::operator==(Client const &other) const { return _fd == other._fd; }
 
-std::queue<std::string>     &Client::getReceivedMessages()      { return this->_outMsg; }
-std::string                 &Client::getRecvBuffer()            { return this->_buffer; }
-const std::string           &Client::getNickname()      const   { return _nickname; }
-std::string                 Client::getIrcNickname()    const   { return _state.has_nick ? _nickname : "*"; }
-const std::string           &Client::getUsername()      const   { return _username; }
-const std::string           &Client::getRealname()      const   { return _realname; }
-int                         Client::getFd()             const   { return _fd; }
-std::string                 Client::getFullUserPrefix() const   { return _nickname + "!" + _username + "@" + "server"; }
+std::queue<std::string> const&	Client::getOutMssgs()	const   { return _outMsg; }
+std::queue<std::string> const&	Client::getInMssgs(void) 			const 	{ return _inMsg; }
+std::string const&				Client::getRecvBuffer()			const   { return _buffer; }
+std::string const&				Client::getNickname()      		const   { return _nickname; }
+std::string const&				Client::getUsername()      		const   { return _username; }
+std::string const&				Client::getRealname()      		const   { return _realname; }
+int                         	Client::getFd()             	const   { return _fd; }
+std::string                 	Client::getIrcNickname()    	const   { return _state.has_nick ? _nickname : "*"; }
+std::string                 	Client::getFullUserPrefix() 	const   { return _nickname + "!" + _username + "@" + "server"; }
 
 bool Client::isRegistered() const
 {
-    return _state.has_nick && _state.has_user && _state.pass_ok;
+	return _state.has_nick && _state.has_user && _state.pass_ok && !_state.cap_negotiating;
 }
 
-bool Client::hasNickname() const
-{
-    return _state.has_nick;
-}
-
+bool Client::wasWelcomed() 			const { return _state.was_welcomed; }
+bool Client::hasNickname() 			const { return _state.has_nick; }
+bool Client::setIsCapNegotiating() 	const { return _state.cap_negotiating; }
 bool Client::isInvitedTo(Channel *ch) const
 {
-    return std::find(_invitedTo.begin(), _invitedTo.end(), ch) != _invitedTo.end();
+	return std::find(_invitedTo.begin(), _invitedTo.end(), ch) != _invitedTo.end();
 }
 
 void Client::addtoBuffer(std::string msg) {
-    this->_buffer.append(msg);
-    // std::cout << "buffer: " << this->_buffer << std::endl;
-    // std::cout << "msg: " << msg << std::endl;
-    // std::cout << "pass: " << this->_outMsg << std::endl;
-    size_t endMsg;
-    while ((endMsg = this->_buffer.find("\r\n")) != std::string::npos) {
-        std::string singleMsg = this->_buffer.substr(0, endMsg);
-        this->_outMsg.push(singleMsg);
-        this->_buffer.erase(0, endMsg + 2);
-    }
+	this->_buffer.append(msg);
+	// std::cout << "buffer: " << this->_buffer << std::endl;
+	// std::cout << "msg: " << msg << std::endl;
+	// std::cout << "pass: " << this->_outMsg << std::endl;
+	size_t endMsg;
+	while ((endMsg = this->_buffer.find("\r\n")) != std::string::npos) {
+		std::string singleMsg = this->_buffer.substr(0, endMsg);
+		this->_outMsg.push(singleMsg);
+		this->_buffer.erase(0, endMsg + 2);
+	}
 }
 
-void Client::setPassword(std::string const&)
-{
-    _state.pass_ok = true;
-}
 
 void Client::setUsername(std::string const& realname)
 {
-    _username = realname;
-    _state.has_user = true;
+	_username = realname;
+	_state.has_user = true;
 }
+void Client::setPassword(std::string const&) 			{ _state.pass_ok = true; }
+void Client::setRealname(std::string const& realname) 	{ _realname = realname; }
+void Client::setIsCapNegotiating(bool flag) 			{ _state.cap_negotiating = flag; }
+void Client::setWasWelcomed(bool flag) 					{ _state.was_welcomed = flag; }
+void Client::getsInvitedTo(Channel *ch) 				{ _invitedTo.push_back(ch); }
 
-void Client::setRealname(std::string const& realname)
+void Client::putIntoRecvBuffer(std::string const& data)
 {
-    _realname = realname;
-}
+	_buffer.append(data);
 
-void Client::getsInvitedTo(Channel *ch) { _invitedTo.push_back(ch); }
+	std::size_t endMsg;
+	while ((endMsg = _buffer.find("\r\n")) != std::string::npos)
+	{
+		std::string singleMsg = _buffer.substr(0, endMsg);
+
+		_outMsg.push(singleMsg);
+
+		std::cout << "single received msg: " << singleMsg << '\n';
+		_buffer.erase(0, endMsg + 2);
+	}
+}
 
 void Client::setNickname(std::string const& nickname)
 {
-    _nickname = nickname;
-    _state.has_nick = true;
+	_nickname = nickname;
+	_state.has_nick = true;
 }
 
-std::queue<std::string> Client::getInMsg(void) const {
-    return this->_inMsg;
-}
-
-
-/// not used?
-// void Client::addtoBuffer(std::string msg) {
-//     this->_buffer.append(msg);
-//     // std::cout << "buffer: " << this->_buffer << std::endl;
-//     // std::cout << "msg: " << msg << std::endl;
-//     // std::cout << "pass: " << this->_outMsg << std::endl;
-//     size_t endMsg;
-//     while ((endMsg = this->_buffer.find("\r\n")) != std::string::npos) {
-//         std::string singleMsg = this->_buffer.substr(0, endMsg);
-//         this->_outMsg.push_back(singleMsg);
-//         this->_buffer.erase(0, endMsg + 2);
-//     }
-// }
-
-void Client::receiveMsg(std::string const &msg)
-{
-    _inMsg.push(msg);
-}
-
-void Client::clearOutMsg(void) {
-
-    _outMsg = std::queue<std::string>();
-}
-
-void Client::clearinMsg(void) {
-
-    _inMsg = std::queue<std::string>();
-}
-
-void Client::addinMsg(std::string remainder) {
-    _inMsg.push(remainder);
-}
+void Client::receiveMsg(std::string const &msg) { _inMsg.push(msg); }
+void Client::clearOutMssgs(void) 					{ _outMsg = std::queue<std::string>(); }
+void Client::clearInMssgs(void) 					{ _inMsg = std::queue<std::string>(); }
+void Client::addInMsg(std::string remainder) 	{ _inMsg.push(remainder); }

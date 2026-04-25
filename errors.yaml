@@ -70,19 +70,6 @@ ERROR_REPLIES:
       PING or PONG message missing the originator parameter which is
       required since these commands must work without valid prefixes.
 
-  411:
-    name: ERR_NORECIPIENT
-    reply: :No recipient given (<command>)
-    desc: >
-      n/a
-
-  412:
-    name: ERR_NOTEXTTOSEND
-    reply: :No text to send
-    desc: >
-      412 - 414 are returned by PRIVMSG to indicate that the message
-      wasn't delivered for some reason.
-
   413:
     name: ERR_NOTTOPLEVEL
     reply: <mask> :No toplevel domain specified
