@@ -83,8 +83,9 @@ void testCorrectPassword()
 
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+        CommandHandler ch(ser, rh, fsh);
         ch.handle(&cl);
         assert(!cl.isRegistered());
     }
@@ -110,8 +111,9 @@ void testIncorrectPassword()
 
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(&cl);
         assert(false);
     }
@@ -140,8 +142,9 @@ void testFullRegistration()
 
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(&cl);
         assert(cl.isRegistered());
     }
@@ -170,8 +173,9 @@ void testJoinChannel()
 
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(&cl);
 
         Channel* chRes = ser.getChannelsByName().find("#chat");
@@ -203,8 +207,9 @@ void testCreateBadChannel()
 
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(&cl);
 
         Channel* chRes = ser.getChannelsByName().find("#");
@@ -237,8 +242,9 @@ void testJoinMultipleChannels()
 
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(&cl);
 
         Channel* ch1 = ser.getChannelsByName().find("#chan1");
@@ -277,8 +283,9 @@ void testJoinWithChannelKey()
     user.addtoBuffer("PASS a\r\nNICK user\r\nUSER user 0 * :real\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(&op); // Registers op, creates channel, sets key
         
         // User tries to join without key
@@ -319,8 +326,9 @@ void testJoinInvalidChannel()
 
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(&cl);
         assert(ser.getChannels().empty());
         assert(cl.getInMssgs().size() == 1);
@@ -352,8 +360,9 @@ void testInviteOnlyAndInviteCommand()
 
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         
         ch.handle(user); 
         
@@ -402,8 +411,9 @@ void testModeOperatorStatus()
 
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         
         // Register both
         ch.handle(op);
@@ -453,8 +463,9 @@ void testModeRevokeOperator()
     user->addtoBuffer("PASS a\r\nNICK target\r\nUSER target 0 * :target\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(user);
 
@@ -499,8 +510,9 @@ void testModeNonOpCannotGrantOp()
     target->addtoBuffer("PASS a\r\nNICK target\r\nUSER target 0 * :target\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(regular);
         ch.handle(target);
@@ -541,8 +553,9 @@ void testModeSetInviteOnly()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -576,8 +589,9 @@ void testModeUnsetInviteOnly()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -613,8 +627,9 @@ void testModeSetTopicRestricted()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -650,8 +665,9 @@ void testModeNonOpCannotSetTopic()
     regular->addtoBuffer("PASS a\r\nNICK reg\r\nUSER reg 0 * :reg\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(regular);
 
@@ -687,8 +703,9 @@ void testModeSetChannelKey()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -721,8 +738,9 @@ void testModeRemoveChannelKey()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -758,8 +776,9 @@ void testModeSetUserLimit()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -792,8 +811,9 @@ void testModeRemoveUserLimit()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -838,8 +858,9 @@ void testInviteUserToInviteOnlyChannel()
     guest->addtoBuffer("PASS a\r\nNICK guest\r\nUSER guest 0 * :guest\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(guest);
 
@@ -883,8 +904,9 @@ void testUninvitedUserCannotJoinInviteOnlyChannel()
     stranger->addtoBuffer("PASS a\r\nNICK stranger\r\nUSER stranger 0 * :stranger\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(stranger);
 
@@ -927,8 +949,9 @@ void testNonOpCannotInvite()
     target->addtoBuffer("PASS a\r\nNICK target\r\nUSER target 0 * :target\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(regular);
         ch.handle(target);
@@ -978,8 +1001,9 @@ void testInviteToNonExistentChannel()
     guest->addtoBuffer("PASS a\r\nNICK guest\r\nUSER guest 0 * :guest\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(guest);
 
@@ -1014,8 +1038,9 @@ void testInviteNonExistentUser()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -1062,8 +1087,9 @@ void testJoinWithCorrectKey()
     user->addtoBuffer("PASS a\r\nNICK user\r\nUSER user 0 * :user\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(user);
 
@@ -1102,8 +1128,9 @@ void testJoinWithWrongKey()
     user->addtoBuffer("PASS a\r\nNICK user\r\nUSER user 0 * :user\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(user);
 
@@ -1142,8 +1169,9 @@ void testJoinChannelAtUserLimit()
     extra->addtoBuffer("PASS a\r\nNICK extra\r\nUSER extra 0 * :extra\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(extra);
 
@@ -1180,8 +1208,9 @@ void testJoinAlreadyInChannel()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -1220,8 +1249,9 @@ void testFirstJoinerBecomesOperator()
     second->addtoBuffer("PASS a\r\nNICK second\r\nUSER second 0 * :second\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(first);
         ch.handle(second);
 
@@ -1263,8 +1293,9 @@ void testModeGrantOpReply()
     user->addtoBuffer("PASS a\r\nNICK target\r\nUSER target 0 * :target\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(user);
 
@@ -1306,8 +1337,9 @@ void testModeRevokeOpReply()
     user->addtoBuffer("PASS a\r\nNICK target\r\nUSER target 0 * :target\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(user);
 
@@ -1348,8 +1380,9 @@ void testModeSetInviteOnlyReply()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -1383,8 +1416,9 @@ void testModeUnsetInviteOnlyReply()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -1421,8 +1455,9 @@ void testModeNonOpCannotSetInviteOnly()
     reg->addtoBuffer("PASS a\r\nNICK reg\r\nUSER reg 0 * :reg\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(reg);
 
@@ -1458,8 +1493,9 @@ void testModeSetTopicRestrictedReply()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -1494,8 +1530,9 @@ void testModeNonOpCannotSetTopicRestricted()
     reg->addtoBuffer("PASS a\r\nNICK reg\r\nUSER reg 0 * :reg\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(reg);
 
@@ -1531,8 +1568,9 @@ void testModeSetKeyReply()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -1564,8 +1602,9 @@ void testModeRemoveKeyReply()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -1599,8 +1638,9 @@ void testModeSetUserLimitReply()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -1632,8 +1672,9 @@ void testModeRemoveUserLimitReply()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -1667,8 +1708,9 @@ void testModeOnNonExistentChannel()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("MODE #ghost +i\r\n");
@@ -1701,8 +1743,9 @@ void testModeNotInChannel()
     outside->addtoBuffer("PASS a\r\nNICK out\r\nUSER out 0 * :out\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(outside);
 
@@ -1738,8 +1781,9 @@ void testModeGrantOpNoParamError()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -1772,8 +1816,9 @@ void testModeGrantOpNonExistentNickError()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -1809,8 +1854,9 @@ void testModeGrantOpUserNotInChannelError()
     outside->addtoBuffer("PASS a\r\nNICK out\r\nUSER out 0 * :out\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(outside);
 
@@ -1849,8 +1895,9 @@ void testModeGrantOpAlreadyOpIsIdempotent()
     user->addtoBuffer("PASS a\r\nNICK user\r\nUSER user 0 * :user\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(user);
 
@@ -1894,8 +1941,9 @@ void testModeRevokeOpNotOpIsIdempotent()
     user->addtoBuffer("PASS a\r\nNICK user\r\nUSER user 0 * :user\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(user);
 
@@ -1932,8 +1980,9 @@ void testModeRevokeOpNoParamError()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -1964,8 +2013,9 @@ void testModeSetKeyNoParamError()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -1999,8 +2049,9 @@ void testModeSetKeyWhenKeyAlreadySetError()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -2040,8 +2091,9 @@ void testModeNonOpCannotSetKey()
     reg->addtoBuffer("PASS a\r\nNICK reg\r\nUSER reg 0 * :reg\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(reg);
 
@@ -2077,8 +2129,9 @@ void testModeSetLimitNoParamError()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -2112,8 +2165,9 @@ void testModeSetLimitZeroError()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -2147,8 +2201,9 @@ void testModeSetLimitNonNumericError()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -2185,8 +2240,9 @@ void testModeNonOpCannotSetLimit()
     reg->addtoBuffer("PASS a\r\nNICK reg\r\nUSER reg 0 * :reg\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(reg);
 
@@ -2222,8 +2278,9 @@ void testModeRemoveLimitWhenNoneSetIsIdempotent()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -2259,8 +2316,9 @@ void testModeNonOpCannotUnsetInviteOnly()
     reg->addtoBuffer("PASS a\r\nNICK reg\r\nUSER reg 0 * :reg\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(reg);
 
@@ -2303,8 +2361,9 @@ void testModeSetInviteOnlyAlreadySetIsIdempotent()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -2342,8 +2401,9 @@ void testModeNonOpCannotUnsetTopicRestricted()
     reg->addtoBuffer("PASS a\r\nNICK reg\r\nUSER reg 0 * :reg\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(reg);
 
@@ -2382,8 +2442,9 @@ void testModeUnsetTopicRestrictedReply()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -2417,8 +2478,9 @@ void testModeUnknownFlagError()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -2450,8 +2512,9 @@ void testModeNoFlagReturnsChannelModeString()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -2489,8 +2552,9 @@ void testModeCombinedPlusItBroadcast()
     user->addtoBuffer("PASS a\r\nNICK user\r\nUSER user 0 * :user\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(user);
 
@@ -2530,8 +2594,9 @@ void testModeCombinedKeyAndLimitReply()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -2566,8 +2631,9 @@ void testModeNonExistentChannelError()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("MODE #ghost +i\r\n");
@@ -2600,8 +2666,9 @@ void testModeNotInChannelError()
     outside->addtoBuffer("PASS a\r\nNICK out\r\nUSER out 0 * :out\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(outside);
 
@@ -2643,8 +2710,9 @@ void testInviteReply()
     guest->addtoBuffer("PASS a\r\nNICK guest\r\nUSER guest 0 * :guest\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(guest);
 
@@ -2682,8 +2750,9 @@ void testInviteAllowsJoinToInviteOnlyChannel()
     guest->addtoBuffer("PASS a\r\nNICK guest\r\nUSER guest 0 * :guest\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(guest);
 
@@ -2726,8 +2795,9 @@ void testInviteNonOpError()
     target->addtoBuffer("PASS a\r\nNICK target\r\nUSER target 0 * :target\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(reg);
         ch.handle(target);
@@ -2774,8 +2844,9 @@ void testInviteToNonExistentChannelError()
     guest->addtoBuffer("PASS a\r\nNICK guest\r\nUSER guest 0 * :guest\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(guest);
 
@@ -2805,8 +2876,9 @@ void testInviteNonExistentUserError()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -2842,8 +2914,9 @@ void testInviteUserAlreadyInChannelError()
     user->addtoBuffer("PASS a\r\nNICK user\r\nUSER user 0 * :user\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(user);
 
@@ -2886,8 +2959,9 @@ void testInviteNotInChannelError()
     target->addtoBuffer("PASS a\r\nNICK target\r\nUSER target 0 * :target\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(outside);
         ch.handle(target);
@@ -2928,8 +3002,9 @@ void testJoinReply()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -2968,8 +3043,9 @@ void testJoinBroadcastToExistingMembers()
     user->addtoBuffer("PASS a\r\nNICK user\r\nUSER user 0 * :user\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(user);
 
@@ -3007,8 +3083,9 @@ void testJoinInviteOnlyWithoutInviteError()
     stranger->addtoBuffer("PASS a\r\nNICK str\r\nUSER str 0 * :str\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(stranger);
 
@@ -3048,8 +3125,9 @@ void testJoinWrongKeyError()
     user->addtoBuffer("PASS a\r\nNICK user\r\nUSER user 0 * :user\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(user);
 
@@ -3089,8 +3167,9 @@ void testJoinChannelFullError()
     extra->addtoBuffer("PASS a\r\nNICK extra\r\nUSER extra 0 * :extra\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
         ch.handle(extra);
 
@@ -3127,8 +3206,9 @@ void testJoinBadChannelNameError()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #\r\n");
@@ -3160,8 +3240,9 @@ void testJoinWithoutRegistrationError()
     cl->addtoBuffer("JOIN #room\r\n");
     try
     {
+        FileSendHandler fsh(ser);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh);
+         CommandHandler ch(ser, rh, fsh);;
         ch.handle(cl);
 
         assert(ser.getChannels().empty());

@@ -7,10 +7,11 @@ class Server;
 class Client;
 class Channel;
 class ReplyHandler;
+class FileSendHandler;
 
 class CommandHandler {
 public:
-	CommandHandler(Server &server, ReplyHandler& rh);
+	CommandHandler(Server &server, ReplyHandler& rh, FileSendHandler &fsh);
 
 	void handle(Client *cl);
 
@@ -20,6 +21,7 @@ private:
 	std::map<std::string, CommandFn>	_commandMap;
 	Server& 							_server;
 	ReplyHandler& 						_replyHandler;
+	FileSendHandler&					_fileSendHandler;
 
 	void setupCommands();
 	void handlePass(Client* client, std::stringstream& command);
@@ -33,7 +35,9 @@ private:
 	void handleTopic(Client* client, std::stringstream& command);
 	void handleMode(Client* client, std::stringstream& command);
 	void handlePing(Client* client, std::stringstream& command);
+	void handleQuit(Client* client, std::stringstream& command);
+	void handlePart(Client* client, std::stringstream& command);
+	void handleFile(Client* client, std::stringstream& command);
 
-	Client *clientLooksFor(Client *client, std::string const& nick) const;
-	Client *clientLooksFor(Client *client, std::string const& nick, Channel *ch) const;
+	Client *clientLooksForUserInChannel(Client *client, std::string const& nick, Channel *ch = NULL) const;
 };

@@ -21,6 +21,7 @@ public:
     ReplyHandler(Server &server);
     ~ReplyHandler();
 
+    void noNickSupplied(Client *client) const;
     void erroneusNick(Client *client, const std::string &nick) const;
     void nicknameAlreadyInUse(Client *client, const std::string& nick) const;
     void badChannelMask(Client *client, const std::string& channelName) const;
@@ -48,6 +49,9 @@ public:
     void alreadyRegistered(Client* client) const;
 
     void passwdMismatch(Client* client) const;
+
+    void badFileSessionToken(Client* client, std::string const& token) const;
+    void fileIsAbsent(Client* client, std::string const& filename) const;
 
     // Replies
     void pong(Client* client, std::string const& token) const;

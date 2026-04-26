@@ -19,6 +19,11 @@ ReplyHandler::~ReplyHandler() { }
 
 using namespace irc;
 
+void ReplyHandler::noNickSupplied(Client *client) const
+{
+    handle(ERR_NONICKNAMEGIVEN, client);
+}
+
 void ReplyHandler::erroneusNick(Client *client, const std::string &nick) const
 {
     handle(ERR_ERRONEUSNICKNAME, client, nick);
@@ -124,6 +129,16 @@ void ReplyHandler::passwdMismatch(Client *client) const
     handle(ERR_PASSWDMISMATCH, client);
 }
 
+void ReplyHandler::badFileSessionToken(Client *client, std::string const &token) const
+{
+    handle(ERR_BADFILESESSTOKEN, client, token);
+}
+
+void ReplyHandler::fileIsAbsent(Client *client, std::string const &filename) const
+{
+    handle(ERR_FILEISABSENT, client, filename);
+}
+
 void ReplyHandler::pong(Client* client, std::string const &token) const
 {
     handle(RPL_PONG, client, token);
@@ -223,6 +238,9 @@ void ReplyHandler::handle(irc::ServerNotifyCodes code, Client *client, std::stri
         case ERR_UNKNOWN_COMMAND:
             msg << extra << " :Unknown command";
             break ;
+        case ERR_NONICKNAMEGIVEN:
+            msg << " :No nickname given";
+            break;
         case ERR_NOSUCHNICK:
             msg << extra << " :No such nick/channel";
             break;
@@ -276,6 +294,12 @@ void ReplyHandler::handle(irc::ServerNotifyCodes code, Client *client, std::stri
             break;
         case ERR_NEEDMOREPARAMS:
             msg << extra << " :Not enough parameters";
+            break;
+        case ERR_BADFILESESSTOKEN:
+            msg << extra << " :Bad file transfer session token";
+            break;
+        case ERR_FILEISABSENT:
+            msg << extra << " :File is not present";
             break;
 
         case RPL_PONG:

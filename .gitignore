@@ -42,3 +42,5 @@ irc
 
 # debug information files
 *.dwo
+wrapper.cpp
+ircwrap

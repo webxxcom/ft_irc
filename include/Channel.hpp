@@ -54,6 +54,7 @@ class Channel {
 	size_t							getUserLimit() 		const;
 	bool							isInviteOnly()		const;
 	bool							isTopicRestricted()	const;
+	bool							isEmpty()			const;
 	std::string const&				getKey()			const;
 	const ChannelTopic&				getTopic()			const;
 

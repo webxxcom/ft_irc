@@ -8,12 +8,19 @@ Channel::Channel(std::string const &name) : _name(name) { }
 Channel::Channel(Client *creator, std::string const &name) : _name(name) { addOperator(creator); }
 
 // Getters
-std::string const&					Channel::getName() 		const { return _name; }
-std::set<Client *> const&			Channel::getMembers() 	const { return _members; }
-std::set<Client *> const&			Channel::getOperators() const { return _operators; }
-std::vector<std::string> const&		Channel::getMessages() 	const { return _messages; }
-unsigned int 						Channel::getModes() 	const { return _modes._modes; }
-const ChannelTopic&					Channel::getTopic()		const {	return _topic; }
+std::string const&					Channel::getName() 					const 	{ return _name; }
+std::set<Client *> const&			Channel::getMembers() 				const 	{ return _members; }
+std::set<Client *> const&			Channel::getOperators() 			const 	{ return _operators; }
+std::vector<std::string> const&		Channel::getMessages() 				const 	{ return _messages; }
+unsigned int 						Channel::getModes() 				const 	{ return _modes._modes; }
+const ChannelTopic&					Channel::getTopic()					const 	{ return _topic; }
+size_t								Channel::getUserLimit()				const 	{ return _modes._userLimit; }
+bool								Channel::isInviteOnly()				const 	{ return _modes._modes & E_INVITE_ONLY; }
+bool 								Channel::isTopicRestricted()		const 	{ return _modes._modes & E_TOPIC_RESTRICT; }
+bool 								Channel::isEmpty() 					const 	{ return _members.empty(); }
+std::string const&					Channel::getKey() 					const	{ return _modes._key; }
+bool 								Channel::hasMember(Client *cl) 		const 	{ return _members.find(cl) != _members.end(); }
+bool 								Channel::hasOperator(Client *cl) 	const	{ return _operators.find(cl) != _operators.end(); }
 
 std::string Channel::getIrcModes() const
 {
@@ -43,10 +50,6 @@ std::string Channel::getIrcModes() const
 		flags += " ";
 	return flags + params.str();
 }
-size_t				Channel::getUserLimit()			const { return _modes._userLimit; }
-bool				Channel::isInviteOnly()			const { return _modes._modes & E_INVITE_ONLY; }
-bool 				Channel::isTopicRestricted()	const { return _modes._modes & E_TOPIC_RESTRICT; }
-std::string const &	Channel::getKey() 				const { return _modes._key; }
 
 Client *Channel::hasMember(std::string const& nick) const
 {
@@ -54,15 +57,11 @@ Client *Channel::hasMember(std::string const& nick) const
     return it != _members.end() ? *it : NULL;
 }
 
-
 Client *Channel::hasOperator(std::string const &nick) const
 {
 	std::set<Client *>::iterator it = std::find_if(_operators.begin(), _operators.end(), Client::NickEquals(nick));
     return it != _operators.end() ? *it : NULL;
 }
-
-bool Channel::hasMember(Client *cl) 	const 	{ return _members.find(cl) != _members.end(); }
-bool Channel::hasOperator(Client *cl) 	const 	{ return _operators.find(cl) != _operators.end(); }
 
 // Modifiers
 void Channel::removeMode(unsigned int mode)

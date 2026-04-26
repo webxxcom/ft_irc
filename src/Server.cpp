@@ -28,7 +28,9 @@ int Server::parseArgs(int ac, char *av[])
     return OK;
 }
 
-Server::Server(int ac, char *av[]) : _serverSocketfd(-1), _commandHandler(*this, _replyHandler), _replyHandler(*this) {
+Server::Server(int ac, char *av[])
+    : _serverSocketfd(-1), _fileSendHandler(*this), _replyHandler(*this), _commandHandler(*this, _replyHandler, _fileSendHandler)
+{
     int status = this->parseArgs(ac, av);
     if (status == ARGS_NUM_INVALID)
         throw ServerErrorException("Arguments invalid\nRun with: ./irc <port> <password>");
@@ -259,6 +261,12 @@ void Server::handlePolls()
     }
 }
 
+void Server::handlePendingTransfers()
+{
+    for(AdvancedMap<std::string, TransferSession *>::iterator it = _pendingTransfers.begin(); it != _pendingTransfers.end(); ++it)
+        _fileSendHandler.sendInChunks(it->second);
+}
+
 Channel *Server::createChannel(Client *creator, std::string const &name)
 {
     Channel *ch = new Channel(creator, name);
@@ -266,4 +274,16 @@ Channel *Server::createChannel(Client *creator, std::string const &name)
     _channels.push_back(ch);
     _channelsByName.insert(std::pair<std::string, Channel *>(name, ch));
     return ch;
+}
+
+void Server::deleteChannel(Channel *ch)
+{
+    _channelsByName.erase(ch->getName());
+    std::remove(_channels.begin(), _channels.end(), ch);
+    delete ch;
+}
+
+void Server::addTransferSession(TransferSession *ts)
+{
+    _pendingTransfers.insert(std::pair<std::string, TransferSession *>(ts->token, ts));
 }
