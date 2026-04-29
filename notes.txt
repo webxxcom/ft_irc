@@ -1,3 +1,0 @@
-Server::disconnectClient - must send all of the messages to the client before disconnecting them
-
-Server::disconnectClient - can we receive all of the messages which client sent to avoid `broken pipe'?s

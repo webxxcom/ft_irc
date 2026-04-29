@@ -20,16 +20,17 @@ class Channel;
 
 class Client {
 private:
-	ClientState                     _state; // state to check the state
-	std::string                     _realname; // added realname just because
 	int                             _fd;
+	std::string                     _realname;
 	std::string                     _nickname;
 	std::string                     _username;
 	std::string                     _address;
 	std::string                     _buffer;
+	ClientState                     _state;
 	std::queue<std::string>         _outMsg;
 	std::queue<std::string>         _inMsg;
 	std::vector<Channel *>          _invitedTo;
+	Client();
 public:
 	struct NickEquals {
 		NickEquals(std::string const& target) {_target = target; };
@@ -39,7 +40,6 @@ public:
 	};
 
 	// Constructors
-	Client();
 	Client(int fd);
 	Client(const Client &orig);
 	Client&operator=(const Client &orig);

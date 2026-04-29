@@ -23,13 +23,17 @@ int Server::parseArgs(int ac, char *av[])
         return PORT_NUM_INVALID;
     if (p < 1024 || p > 65536)
         return PORT_NUM_INVALID;
-    this->_port = p;
-    this->_password = av[2];
+    _state.setPort(p);
+    _state.setPassword(av[2]);
     return OK;
 }
 
 Server::Server(int ac, char *av[])
-    : _serverSocketfd(-1), _fileSendHandler(*this), _replyHandler(*this), _commandHandler(*this, _replyHandler, _fileSendHandler)
+    : _serverSocketfd(-1)
+    , _state()
+    , _fileSendHandler(_state)
+    , _replyHandler(*this)
+    , _commandHandler(_state, _replyHandler, _fileSendHandler)
 {
     int status = this->parseArgs(ac, av);
     if (status == ARGS_NUM_INVALID)
@@ -42,11 +46,6 @@ Server::Server(int ac, char *av[])
 Server::~Server() {
     if (this->_serverSocketfd != -1)
         close(this->_serverSocketfd);
-    
-    for(size_t i = 0; i < _clients.size(); ++i)
-        delete _clients[i];
-    for(size_t i = 0; i < _channels.size(); ++i)
-        delete _channels[i];
 }
 
 void Server::setupServer(void) {
@@ -54,7 +53,7 @@ void Server::setupServer(void) {
     memset(&s, 0, sizeof(s));
     s.sin_family = AF_INET;
     s.sin_addr.s_addr = INADDR_ANY;
-    s.sin_port = htons(this->_port);
+    s.sin_port = htons(_state.getPort());
     struct pollfd serverfd;
     this->_serverSocketfd = socket(AF_INET, SOCK_STREAM, 0);
     if (this->_serverSocketfd == -1)
@@ -95,19 +94,12 @@ void Server::acceptClient(void) {
     this->_pollfds.push_back(clientfd);
 
     Client *cl = new Client(clientfd.fd);
-    _clients.push_back(cl);
-    _clientsByFd.insert(std::pair<int, Client *>(cl->getFd(), cl));
-    _clientsByName.insert(std::pair<std::string, Client *>(cl->getNickname(), cl));
+    _state.addClient(cl);
 }
 
 void Server::disconnectClient(Client *client) {
-    shutdown(client->getFd(), SHUT_WR); 
-    close(client->getFd());
     std::remove_if(_pollfds.begin(), _pollfds.end(), CompareByFd(client->getFd()));
-    _clientsByFd.erase(client->getFd());
-    _clientsByName.erase(client->getNickname());
-    _clients.erase(std::find(_clients.begin(), _clients.end(), client));
-    delete client;
+    _state.removeClient(client);
 }
 
 bool Server::receiveClientData(Client *client)
@@ -178,27 +170,9 @@ bool Server::messageClient(Client *client) {
     return false;
 }
 
-void Server::finishServer(void) {
-
-    // or maybe close in clients destructor, would probably be better
-    for (size_t k = 0; k < this->_pollfds.size(); ++k) {
-        if (this->_pollfds[k].fd >= 0)
-            close(this->_pollfds[k].fd);
-    }
-    this->_pollfds.clear();
-    this->_clients.clear();
-    this->_channels.clear();
-    //if roman uses pointers, first need to free memory (close, delete, clear)
-}
-
-AdvancedMap<std::string, Channel *> const &Server::getChannelsByName() const
+void Server::finishServer(void)
 {
-    return _channelsByName;
-}
 
-std::vector<Channel *> const &Server::getChannels() const
-{
-    return _channels;
 }
 
 void Server::startServer(void) {
@@ -228,12 +202,12 @@ void Server::handlePolls()
                 {
                     if (this->_pollfds[i].fd == this->_serverSocketfd)
                     {
-                        finishServer();
+                        finishServer(); // ! Shouldn't throw to exit?
                         return ;
                     }
                     else
                     {
-                        disconnectClient(this->_clientsByFd[this->_pollfds[i].fd]);
+                        disconnectClient(_state.clientFindByFd(_pollfds[i].fd));
                         iDisconnected = true;
                     }
                 }
@@ -242,18 +216,18 @@ void Server::handlePolls()
                     if (this->_pollfds[i].fd == this->_serverSocketfd)
                         acceptClient();
                     else
-                        iDisconnected = receiveClientData(this->_clientsByFd[this->_pollfds[i].fd]);
+                        iDisconnected = receiveClientData(_state.clientFindByFd(this->_pollfds[i].fd));
                 }
                 if (!iDisconnected && this->_pollfds[i].revents & POLLOUT)
-                    iDisconnected = messageClient(this->_clientsByFd.at(this->_pollfds[i].fd));
+                    iDisconnected = messageClient(_state.clientFindByFd(this->_pollfds[i].fd));
             }
         }
-        catch(const ClientException& e)
+        catch(const ClientException& e) // ! leave it for QUIT?
         {
             std::string errMsg = std::string("Error :") + e.what() + "\r\n";
             std::cout<< "disconnecting fd.." << std::endl;
             send(this->_pollfds[i].fd, errMsg.c_str(), errMsg.length(), MSG_NOSIGNAL);
-            disconnectClient(this->_clients[this->_pollfds[i].fd]);
+            disconnectClient(_state.clientFindByFd(this->_pollfds[i].fd));
             iDisconnected = true;
         }
         if (!iDisconnected)
@@ -263,27 +237,7 @@ void Server::handlePolls()
 
 void Server::handlePendingTransfers()
 {
-    for(AdvancedMap<std::string, TransferSession *>::iterator it = _pendingTransfers.begin(); it != _pendingTransfers.end(); ++it)
-        _fileSendHandler.sendInChunks(it->second);
-}
-
-Channel *Server::createChannel(Client *creator, std::string const &name)
-{
-    Channel *ch = new Channel(creator, name);
-
-    _channels.push_back(ch);
-    _channelsByName.insert(std::pair<std::string, Channel *>(name, ch));
-    return ch;
-}
-
-void Server::deleteChannel(Channel *ch)
-{
-    _channelsByName.erase(ch->getName());
-    std::remove(_channels.begin(), _channels.end(), ch);
-    delete ch;
-}
-
-void Server::addTransferSession(TransferSession *ts)
-{
-    _pendingTransfers.insert(std::pair<std::string, TransferSession *>(ts->token, ts));
+    for(std::map<std::string, TransferSession *>::iterator it = _state.getPendingTransfers().begin(); it != _state.getPendingTransfers().end(); ++it)
+        if (it->second->state == TransferSession::TRANSFERRING)    
+            _fileSendHandler.sendInChunks(it->second);
 }

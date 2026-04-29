@@ -4,23 +4,24 @@
 #include <cassert>
 #include <algorithm>
 
-class Tester {
-    public:
-        static void addClient(Server& ser, Client* cl) {
-            struct pollfd clientfd;
-            clientfd.fd = cl->getFd();
-            clientfd.events = POLLIN;
-            clientfd.revents = 0;
-            ser._pollfds.push_back(clientfd);
+volatile sig_atomic_t g_serverRunning = 1;
 
-            ser._clients.push_back(cl);
-            ser._clientsByFd.insert(std::pair<int, Client *>(cl->getFd(), cl));
-        }
-};
+class Tester {
+public:
+    static void addClient(Server& ser, Client* cl) {
+        struct pollfd clientfd;
+        clientfd.fd = cl->getFd();
+        clientfd.events = POLLIN;
+        clientfd.revents = 0;
+        ser._pollfds.push_back(clientfd);
+
+        ser._state._clients.push_back(cl);
+        ser._state._clientsByFd.insert(std::pair<int, Client *>(cl->getFd(), cl));
+    }
 
 // ===== HELPER MACRO =====
 // Checks if a specific message exists in a client's incoming message buffer
-void assert_has_msg(Client *client, std::string const& msg)
+static    void assert_has_msg(Client *client, std::string const& msg)
 {
     std::queue<std::string> msggs = client->getInMssgs();
     while (!msggs.empty())
@@ -31,7 +32,7 @@ void assert_has_msg(Client *client, std::string const& msg)
     }
     assert(true);
 }
-void assert_no_msg(Client *client, std::string const& msg)
+static void assert_no_msg(Client *client, std::string const& msg)
 {
     std::queue<std::string> msggs = client->getInMssgs();
     while (!msggs.empty())
@@ -43,11 +44,9 @@ void assert_no_msg(Client *client, std::string const& msg)
    
 }
 
-volatile sig_atomic_t g_serverRunning = 1;
+static std::string port;
 
-std::string port = "6667";
-
-void testGetIrcModes()
+static void testGetIrcModes()
 {
     Channel c("chat");
 
@@ -67,7 +66,7 @@ void testGetIrcModes()
     assert(c.getIrcModes() == "");
 }
 
-void testCorrectPassword()
+static void testCorrectPassword()
 {
     std::string password = "a", nick = "us";
     char *argv[] = {
@@ -83,9 +82,9 @@ void testCorrectPassword()
 
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-        CommandHandler ch(ser, rh, fsh);
+        CommandHandler ch(ser._state, rh, fsh);
         ch.handle(&cl);
         assert(!cl.isRegistered());
     }
@@ -95,7 +94,7 @@ void testCorrectPassword()
     }
 }
 
-void testIncorrectPassword()
+static void testIncorrectPassword()
 {
     std::string password = "b", nick = "us";
     char *argv[] = {
@@ -111,9 +110,9 @@ void testIncorrectPassword()
 
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+        CommandHandler ch(ser._state, rh, fsh);
         ch.handle(&cl);
         assert(false);
     }
@@ -124,7 +123,7 @@ void testIncorrectPassword()
     }
 }
 
-void testFullRegistration()
+static void testFullRegistration()
 {
     std::string password = "a", nick = "user";
     char *argv[] = {
@@ -142,9 +141,9 @@ void testFullRegistration()
 
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(&cl);
         assert(cl.isRegistered());
     }
@@ -154,7 +153,7 @@ void testFullRegistration()
     }
 }
 
-void testJoinChannel()
+static void testJoinChannel()
 {
     std::string password = "a";
     char *argv[] = {
@@ -173,12 +172,12 @@ void testJoinChannel()
 
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(&cl);
 
-        Channel* chRes = ser.getChannelsByName().find("#chat");
+        Channel* chRes = ser._state.channelFindByName("#chat");
         assert(chRes != NULL);
         assert(chRes->hasMember(&cl));
     }
@@ -188,7 +187,7 @@ void testJoinChannel()
     }
 }
 
-void testCreateBadChannel()
+static void testCreateBadChannel()
 {
     std::string password = "a";
     char *argv[] = {
@@ -207,14 +206,14 @@ void testCreateBadChannel()
 
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(&cl);
 
-        Channel* chRes = ser.getChannelsByName().find("#");
+        Channel* chRes = ser._state.channelFindByName("#");
         assert(chRes == NULL);
-        assert(ser.getChannels().empty());
+        assert(ser._state._channels.empty());
     }
     catch (...)
     {
@@ -222,7 +221,7 @@ void testCreateBadChannel()
     }
 }
 
-void testJoinMultipleChannels()
+static void testJoinMultipleChannels()
 {
     std::string password = "a";
     char *argv[] = {
@@ -242,13 +241,13 @@ void testJoinMultipleChannels()
 
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(&cl);
 
-        Channel* ch1 = ser.getChannelsByName().find("#chan1");
-        Channel* ch2 = ser.getChannelsByName().find("#chan2");
+        Channel* ch1 = ser._state.channelFindByName("#chan1");
+        Channel* ch2 = ser._state.channelFindByName("#chan2");
         
         assert(ch1 != NULL);
         assert(ch2 != NULL);
@@ -261,7 +260,7 @@ void testJoinMultipleChannels()
     }
 }
 
-void testJoinWithChannelKey()
+static void testJoinWithChannelKey()
 {
     std::string password = "a";
     char *argv[] = {
@@ -283,16 +282,16 @@ void testJoinWithChannelKey()
     user.addtoBuffer("PASS a\r\nNICK user\r\nUSER user 0 * :real\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(&op); // Registers op, creates channel, sets key
         
         // User tries to join without key
         user.addtoBuffer("JOIN #secret\r\n");
         ch.handle(&user);
         
-        Channel* chan = ser.getChannelsByName().find("#secret");
+        Channel* chan = ser._state.channelFindByName("#secret");
         assert(chan != NULL);
         assert(!chan->hasMember(&user)); // Should fail to join
         
@@ -307,7 +306,7 @@ void testJoinWithChannelKey()
     }
 }
 
-void testJoinInvalidChannel()
+static void testJoinInvalidChannel()
 {
     std::string password = "a";
     char *argv[] = {
@@ -326,11 +325,11 @@ void testJoinInvalidChannel()
 
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(&cl);
-        assert(ser.getChannels().empty());
+        assert(ser._state._channels.empty());
         assert(cl.getInMssgs().size() == 1);
     }
     catch (...)
@@ -339,7 +338,7 @@ void testJoinInvalidChannel()
     }
 }
 
-void testInviteOnlyAndInviteCommand()
+static void testInviteOnlyAndInviteCommand()
 {
     std::string password = "a";
     char *argv[] = {
@@ -360,9 +359,9 @@ void testInviteOnlyAndInviteCommand()
 
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         
         ch.handle(user); 
         
@@ -370,7 +369,7 @@ void testInviteOnlyAndInviteCommand()
         op->addtoBuffer("MODE #vip +i\r\n"); // Set Invite Only
         ch.handle(op); 
 
-        Channel* vipChan = ser.getChannelsByName().find("#vip");
+        Channel* vipChan = ser._state.channelFindByName("#vip");
         assert(vipChan != NULL);
 
         user->addtoBuffer("JOIN #vip\r\n");
@@ -390,7 +389,7 @@ void testInviteOnlyAndInviteCommand()
     }
 }
 
-void testModeOperatorStatus()
+static void testModeOperatorStatus()
 {
     std::string password = "a";
     char *argv[] = {
@@ -411,9 +410,9 @@ void testModeOperatorStatus()
 
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         
         // Register both
         ch.handle(op);
@@ -425,7 +424,7 @@ void testModeOperatorStatus()
         user->addtoBuffer("JOIN #staff\r\n");
         ch.handle(user);
 
-        Channel* chan = ser.getChannelsByName().find("#staff");
+        Channel* chan = ser._state.channelFindByName("#staff");
         assert(chan != NULL);
         
         assert(chan->hasOperator(op));
@@ -446,7 +445,7 @@ void testModeOperatorStatus()
 
 // ===== MODE TESTS =====
 
-void testModeRevokeOperator()
+static void testModeRevokeOperator()
 {
     std::string password = "a";
     char *argv[] = {
@@ -463,9 +462,9 @@ void testModeRevokeOperator()
     user->addtoBuffer("PASS a\r\nNICK target\r\nUSER target 0 * :target\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(user);
 
@@ -477,7 +476,7 @@ void testModeRevokeOperator()
         // Grant then revoke
         op->addtoBuffer("MODE #staff +o target\r\n");
         ch.handle(op);
-        Channel* chan = ser.getChannelsByName().find("#staff");
+        Channel* chan = ser._state.channelFindByName("#staff");
         assert(chan->hasOperator(user));
 
         op->addtoBuffer("MODE #staff -o target\r\n");
@@ -490,7 +489,7 @@ void testModeRevokeOperator()
     }
 }
 
-void testModeNonOpCannotGrantOp()
+static void testModeNonOpCannotGrantOp()
 {
     std::string password = "a";
     char *argv[] = {
@@ -510,9 +509,9 @@ void testModeNonOpCannotGrantOp()
     target->addtoBuffer("PASS a\r\nNICK target\r\nUSER target 0 * :target\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(regular);
         ch.handle(target);
@@ -528,7 +527,7 @@ void testModeNonOpCannotGrantOp()
         regular->addtoBuffer("MODE #room +o target\r\n");
         ch.handle(regular);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan != NULL);
         assert(!chan->hasOperator(target));
         assert_has_msg(regular, ":server 482 reg #room :You're not channel operator\r\n");
@@ -539,7 +538,7 @@ void testModeNonOpCannotGrantOp()
     }
 }
 
-void testModeSetInviteOnly()
+static void testModeSetInviteOnly()
 {
     std::string password = "a";
     char *argv[] = {
@@ -553,15 +552,15 @@ void testModeSetInviteOnly()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan != NULL);
         assert(!chan->isInviteOnly());
 
@@ -575,7 +574,7 @@ void testModeSetInviteOnly()
     }
 }
 
-void testModeUnsetInviteOnly()
+static void testModeUnsetInviteOnly()
 {
     std::string password = "a";
     char *argv[] = {
@@ -589,9 +588,9 @@ void testModeUnsetInviteOnly()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -600,7 +599,7 @@ void testModeUnsetInviteOnly()
         op->addtoBuffer("MODE #room +i\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan->isInviteOnly());
 
         op->addtoBuffer("MODE #room -i\r\n");
@@ -613,7 +612,7 @@ void testModeUnsetInviteOnly()
     }
 }
 
-void testModeSetTopicRestricted()
+static void testModeSetTopicRestricted()
 {
     std::string password = "a";
     char *argv[] = {
@@ -627,9 +626,9 @@ void testModeSetTopicRestricted()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -638,7 +637,7 @@ void testModeSetTopicRestricted()
         op->addtoBuffer("MODE #room +t\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan != NULL);
         assert(chan->isTopicRestricted());
     }
@@ -648,7 +647,7 @@ void testModeSetTopicRestricted()
     }
 }
 
-void testModeNonOpCannotSetTopic()
+static void testModeNonOpCannotSetTopic()
 {
     std::string password = "a";
     char *argv[] = {
@@ -665,9 +664,9 @@ void testModeNonOpCannotSetTopic()
     regular->addtoBuffer("PASS a\r\nNICK reg\r\nUSER reg 0 * :reg\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(regular);
 
@@ -679,7 +678,7 @@ void testModeNonOpCannotSetTopic()
         regular->addtoBuffer("MODE #room +t\r\n");
         ch.handle(regular);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan != NULL);
         assert(!chan->isTopicRestricted());
     }
@@ -689,7 +688,7 @@ void testModeNonOpCannotSetTopic()
     }
 }
 
-void testModeSetChannelKey()
+static void testModeSetChannelKey()
 {
     std::string password = "a";
     char *argv[] = {
@@ -703,9 +702,9 @@ void testModeSetChannelKey()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -714,7 +713,7 @@ void testModeSetChannelKey()
         op->addtoBuffer("MODE #room +k secret\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan != NULL);
         assert(chan->getKey() == "secret");
     }
@@ -724,7 +723,7 @@ void testModeSetChannelKey()
     }
 }
 
-void testModeRemoveChannelKey()
+static void testModeRemoveChannelKey()
 {
     std::string password = "a";
     char *argv[] = {
@@ -738,9 +737,9 @@ void testModeRemoveChannelKey()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -749,7 +748,7 @@ void testModeRemoveChannelKey()
         op->addtoBuffer("MODE #room +k secret\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan->getKey() == "secret");
 
         op->addtoBuffer("MODE #room -k secret\r\n");
@@ -762,7 +761,7 @@ void testModeRemoveChannelKey()
     }
 }
 
-void testModeSetUserLimit()
+static void testModeSetUserLimit()
 {
     std::string password = "a";
     char *argv[] = {
@@ -776,9 +775,9 @@ void testModeSetUserLimit()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -787,7 +786,7 @@ void testModeSetUserLimit()
         op->addtoBuffer("MODE #room +l 5\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan != NULL);
         assert(chan->getUserLimit() == 5);
     }
@@ -797,7 +796,7 @@ void testModeSetUserLimit()
     }
 }
 
-void testModeRemoveUserLimit()
+static void testModeRemoveUserLimit()
 {
     std::string password = "a";
     char *argv[] = {
@@ -811,9 +810,9 @@ void testModeRemoveUserLimit()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -822,7 +821,7 @@ void testModeRemoveUserLimit()
         op->addtoBuffer("MODE #room +l 5\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan->getUserLimit() == 5);
 
         op->addtoBuffer("MODE #room -l\r\n");
@@ -841,7 +840,7 @@ void testModeRemoveUserLimit()
 
 // ===== INVITE TESTS =====
 
-void testInviteUserToInviteOnlyChannel()
+static void testInviteUserToInviteOnlyChannel()
 {
     std::string password = "a";
     char *argv[] = {
@@ -858,9 +857,9 @@ void testInviteUserToInviteOnlyChannel()
     guest->addtoBuffer("PASS a\r\nNICK guest\r\nUSER guest 0 * :guest\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(guest);
 
@@ -877,7 +876,7 @@ void testInviteUserToInviteOnlyChannel()
         guest->addtoBuffer("JOIN #vip\r\n");
         ch.handle(guest);
 
-        Channel* chan = ser.getChannelsByName().find("#vip");
+        Channel* chan = ser._state.channelFindByName("#vip");
         assert(chan != NULL);
         assert(chan->hasMember(guest));
     }
@@ -887,7 +886,7 @@ void testInviteUserToInviteOnlyChannel()
     }
 }
 
-void testUninvitedUserCannotJoinInviteOnlyChannel()
+static void testUninvitedUserCannotJoinInviteOnlyChannel()
 {
     std::string password = "a";
     char *argv[] = {
@@ -904,9 +903,9 @@ void testUninvitedUserCannotJoinInviteOnlyChannel()
     stranger->addtoBuffer("PASS a\r\nNICK stranger\r\nUSER stranger 0 * :stranger\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(stranger);
 
@@ -919,7 +918,7 @@ void testUninvitedUserCannotJoinInviteOnlyChannel()
         stranger->addtoBuffer("JOIN #vip\r\n");
         ch.handle(stranger);
 
-        Channel* chan = ser.getChannelsByName().find("#vip");
+        Channel* chan = ser._state.channelFindByName("#vip");
         assert(chan != NULL);
         assert(!chan->hasMember(stranger));
     }
@@ -929,7 +928,7 @@ void testUninvitedUserCannotJoinInviteOnlyChannel()
     }
 }
 
-void testNonOpCannotInvite()
+static void testNonOpCannotInvite()
 {
     std::string password = "a";
     char *argv[] = {
@@ -949,9 +948,9 @@ void testNonOpCannotInvite()
     target->addtoBuffer("PASS a\r\nNICK target\r\nUSER target 0 * :target\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(regular);
         ch.handle(target);
@@ -974,7 +973,7 @@ void testNonOpCannotInvite()
         target->addtoBuffer("JOIN #vip\r\n");
         ch.handle(target);
 
-        Channel* chan = ser.getChannelsByName().find("#vip");
+        Channel* chan = ser._state.channelFindByName("#vip");
         assert(chan != NULL);
         assert(!chan->hasMember(target));
     }
@@ -984,7 +983,7 @@ void testNonOpCannotInvite()
     }
 }
 
-void testInviteToNonExistentChannel()
+static void testInviteToNonExistentChannel()
 {
     std::string password = "a";
     char *argv[] = {
@@ -1001,9 +1000,9 @@ void testInviteToNonExistentChannel()
     guest->addtoBuffer("PASS a\r\nNICK guest\r\nUSER guest 0 * :guest\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(guest);
 
@@ -1011,7 +1010,7 @@ void testInviteToNonExistentChannel()
         op->addtoBuffer("INVITE guest #nowhere\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#nowhere");
+        Channel* chan = ser._state.channelFindByName("#nowhere");
         assert(chan == NULL);
     }
     catch (ClientException &)
@@ -1024,7 +1023,7 @@ void testInviteToNonExistentChannel()
     }
 }
 
-void testInviteNonExistentUser()
+static void testInviteNonExistentUser()
 {
     std::string password = "a";
     char *argv[] = {
@@ -1038,9 +1037,9 @@ void testInviteNonExistentUser()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -1050,7 +1049,7 @@ void testInviteNonExistentUser()
         ch.handle(op);
 
         // Server should not have crashed; channel is intact
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan != NULL);
         assert(chan->getMembers().size() == 1);
     }
@@ -1070,7 +1069,7 @@ void testInviteNonExistentUser()
 
 // ===== JOIN EDGE CASE TESTS =====
 
-void testJoinWithCorrectKey()
+static void testJoinWithCorrectKey()
 {
     std::string password = "a";
     char *argv[] = {
@@ -1087,9 +1086,9 @@ void testJoinWithCorrectKey()
     user->addtoBuffer("PASS a\r\nNICK user\r\nUSER user 0 * :user\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(user);
 
@@ -1101,7 +1100,7 @@ void testJoinWithCorrectKey()
         user->addtoBuffer("JOIN #locked secret\r\n");
         ch.handle(user);
 
-        Channel* chan = ser.getChannelsByName().find("#locked");
+        Channel* chan = ser._state.channelFindByName("#locked");
         assert(chan != NULL);
         assert(chan->hasMember(user));
     }
@@ -1111,7 +1110,7 @@ void testJoinWithCorrectKey()
     }
 }
 
-void testJoinWithWrongKey()
+static void testJoinWithWrongKey()
 {
     std::string password = "a";
     char *argv[] = {
@@ -1128,9 +1127,9 @@ void testJoinWithWrongKey()
     user->addtoBuffer("PASS a\r\nNICK user\r\nUSER user 0 * :user\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(user);
 
@@ -1142,7 +1141,7 @@ void testJoinWithWrongKey()
         user->addtoBuffer("JOIN #locked wrongkey\r\n");
         ch.handle(user);
 
-        Channel* chan = ser.getChannelsByName().find("#locked");
+        Channel* chan = ser._state.channelFindByName("#locked");
         assert(chan != NULL);
         assert(!chan->hasMember(user));
     }
@@ -1152,7 +1151,7 @@ void testJoinWithWrongKey()
     }
 }
 
-void testJoinChannelAtUserLimit()
+static void testJoinChannelAtUserLimit()
 {
     std::string password = "a";
     char *argv[] = {
@@ -1169,9 +1168,9 @@ void testJoinChannelAtUserLimit()
     extra->addtoBuffer("PASS a\r\nNICK extra\r\nUSER extra 0 * :extra\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(extra);
 
@@ -1183,7 +1182,7 @@ void testJoinChannelAtUserLimit()
         extra->addtoBuffer("JOIN #small\r\n");
         ch.handle(extra);
 
-        Channel* chan = ser.getChannelsByName().find("#small");
+        Channel* chan = ser._state.channelFindByName("#small");
         assert(chan != NULL);
         assert(!chan->hasMember(extra));
         assert(chan->getMembers().size() == 1);
@@ -1194,7 +1193,7 @@ void testJoinChannelAtUserLimit()
     }
 }
 
-void testJoinAlreadyInChannel()
+static void testJoinAlreadyInChannel()
 {
     std::string password = "a";
     char *argv[] = {
@@ -1208,9 +1207,9 @@ void testJoinAlreadyInChannel()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -1220,7 +1219,7 @@ void testJoinAlreadyInChannel()
         op->addtoBuffer("JOIN #room\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan != NULL);
         assert(chan->hasMember(op));
         // Must not be listed twice
@@ -1232,7 +1231,7 @@ void testJoinAlreadyInChannel()
     }
 }
 
-void testFirstJoinerBecomesOperator()
+static void testFirstJoinerBecomesOperator()
 {
     std::string password = "a";
     char *argv[] = {
@@ -1249,9 +1248,9 @@ void testFirstJoinerBecomesOperator()
     second->addtoBuffer("PASS a\r\nNICK second\r\nUSER second 0 * :second\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(first);
         ch.handle(second);
 
@@ -1260,7 +1259,7 @@ void testFirstJoinerBecomesOperator()
         second->addtoBuffer("JOIN #room\r\n");
         ch.handle(second);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan != NULL);
         assert(chan->hasOperator(first));
         assert(!chan->hasOperator(second));
@@ -1276,7 +1275,7 @@ void testFirstJoinerBecomesOperator()
 
 // ===== MODE TESTS =====
 
-void testModeGrantOpReply()
+static void testModeGrantOpReply()
 {
     std::string password = "a";
     char *argv[] = {
@@ -1293,9 +1292,9 @@ void testModeGrantOpReply()
     user->addtoBuffer("PASS a\r\nNICK target\r\nUSER target 0 * :target\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(user);
 
@@ -1307,7 +1306,7 @@ void testModeGrantOpReply()
         op->addtoBuffer("MODE #room +o target\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan != NULL);
         assert(chan->hasOperator(user));
         // Channel members should see the MODE broadcast
@@ -1320,7 +1319,7 @@ void testModeGrantOpReply()
     }
 }
 
-void testModeRevokeOpReply()
+static void testModeRevokeOpReply()
 {
     std::string password = "a";
     char *argv[] = {
@@ -1337,9 +1336,9 @@ void testModeRevokeOpReply()
     user->addtoBuffer("PASS a\r\nNICK target\r\nUSER target 0 * :target\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(user);
 
@@ -1350,12 +1349,12 @@ void testModeRevokeOpReply()
 
         op->addtoBuffer("MODE #room +o target\r\n");
         ch.handle(op);
-        assert(ser.getChannelsByName().find("#room")->hasOperator(user));
+        assert(ser._state.channelFindByName("#room")->hasOperator(user));
 
         op->addtoBuffer("MODE #room -o target\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(!chan->hasOperator(user));
         assert_has_msg(op,   ":op!op@server MODE #room -o target\r\n");
         assert_has_msg(user, ":op!op@server MODE #room -o target\r\n");
@@ -1366,7 +1365,7 @@ void testModeRevokeOpReply()
     }
 }
 
-void testModeSetInviteOnlyReply()
+static void testModeSetInviteOnlyReply()
 {
     std::string password = "a";
     char *argv[] = {
@@ -1380,9 +1379,9 @@ void testModeSetInviteOnlyReply()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -1391,7 +1390,7 @@ void testModeSetInviteOnlyReply()
         op->addtoBuffer("MODE #room +i\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan != NULL);
         assert(chan->isInviteOnly());
         assert_has_msg(op, ":op!op@server MODE #room +i\r\n");
@@ -1402,7 +1401,7 @@ void testModeSetInviteOnlyReply()
     }
 }
 
-void testModeUnsetInviteOnlyReply()
+static void testModeUnsetInviteOnlyReply()
 {
     std::string password = "a";
     char *argv[] = {
@@ -1416,9 +1415,9 @@ void testModeUnsetInviteOnlyReply()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -1428,7 +1427,7 @@ void testModeUnsetInviteOnlyReply()
         op->addtoBuffer("MODE #room -i\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(!chan->isInviteOnly());
         assert_has_msg(op, ":op!op@server MODE #room -i\r\n");
     }
@@ -1438,7 +1437,7 @@ void testModeUnsetInviteOnlyReply()
     }
 }
 
-void testModeNonOpCannotSetInviteOnly()
+static void testModeNonOpCannotSetInviteOnly()
 {
     std::string password = "a";
     char *argv[] = {
@@ -1455,9 +1454,9 @@ void testModeNonOpCannotSetInviteOnly()
     reg->addtoBuffer("PASS a\r\nNICK reg\r\nUSER reg 0 * :reg\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(reg);
 
@@ -1469,7 +1468,7 @@ void testModeNonOpCannotSetInviteOnly()
         reg->addtoBuffer("MODE #room +i\r\n");
         ch.handle(reg);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(!chan->isInviteOnly());
         assert_has_msg(reg, ":server 482 reg #room :You're not channel operator\r\n");
     }
@@ -1479,7 +1478,7 @@ void testModeNonOpCannotSetInviteOnly()
     }
 }
 
-void testModeSetTopicRestrictedReply()
+static void testModeSetTopicRestrictedReply()
 {
     std::string password = "a";
     char *argv[] = {
@@ -1493,9 +1492,9 @@ void testModeSetTopicRestrictedReply()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -1503,7 +1502,7 @@ void testModeSetTopicRestrictedReply()
         op->addtoBuffer("MODE #room +t\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan->isTopicRestricted());
         assert_has_msg(op, ":op!op@server MODE #room +t\r\n");
     }
@@ -1513,7 +1512,7 @@ void testModeSetTopicRestrictedReply()
     }
 }
 
-void testModeNonOpCannotSetTopicRestricted()
+static void testModeNonOpCannotSetTopicRestricted()
 {
     std::string password = "a";
     char *argv[] = {
@@ -1530,9 +1529,9 @@ void testModeNonOpCannotSetTopicRestricted()
     reg->addtoBuffer("PASS a\r\nNICK reg\r\nUSER reg 0 * :reg\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(reg);
 
@@ -1544,7 +1543,7 @@ void testModeNonOpCannotSetTopicRestricted()
         reg->addtoBuffer("MODE #room +t\r\n");
         ch.handle(reg);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(!chan->isTopicRestricted());
         assert_has_msg(reg, ":server 482 reg #room :You're not channel operator\r\n");
     }
@@ -1554,7 +1553,7 @@ void testModeNonOpCannotSetTopicRestricted()
     }
 }
 
-void testModeSetKeyReply()
+static void testModeSetKeyReply()
 {
     std::string password = "a";
     char *argv[] = {
@@ -1568,9 +1567,9 @@ void testModeSetKeyReply()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -1578,7 +1577,7 @@ void testModeSetKeyReply()
         op->addtoBuffer("MODE #room +k secret\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan->getKey() == "secret");
         assert_has_msg(op, ":op!op@server MODE #room +k secret\r\n");
     }
@@ -1588,7 +1587,7 @@ void testModeSetKeyReply()
     }
 }
 
-void testModeRemoveKeyReply()
+static void testModeRemoveKeyReply()
 {
     std::string password = "a";
     char *argv[] = {
@@ -1602,9 +1601,9 @@ void testModeRemoveKeyReply()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -1614,7 +1613,7 @@ void testModeRemoveKeyReply()
         op->addtoBuffer("MODE #room -k secret\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan->getKey().empty());
         assert_has_msg(op, ":op!op@server MODE #room -k secret\r\n");
     }
@@ -1624,7 +1623,7 @@ void testModeRemoveKeyReply()
     }
 }
 
-void testModeSetUserLimitReply()
+static void testModeSetUserLimitReply()
 {
     std::string password = "a";
     char *argv[] = {
@@ -1638,9 +1637,9 @@ void testModeSetUserLimitReply()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -1648,7 +1647,7 @@ void testModeSetUserLimitReply()
         op->addtoBuffer("MODE #room +l 5\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan->getUserLimit() == 5);
         assert_has_msg(op, ":op!op@server MODE #room +l 5\r\n");
     }
@@ -1658,7 +1657,7 @@ void testModeSetUserLimitReply()
     }
 }
 
-void testModeRemoveUserLimitReply()
+static void testModeRemoveUserLimitReply()
 {
     std::string password = "a";
     char *argv[] = {
@@ -1672,9 +1671,9 @@ void testModeRemoveUserLimitReply()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -1684,7 +1683,7 @@ void testModeRemoveUserLimitReply()
         op->addtoBuffer("MODE #room -l\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan->getUserLimit() == 0);
         assert_has_msg(op, ":op!op@server MODE #room -l\r\n");
     }
@@ -1694,7 +1693,7 @@ void testModeRemoveUserLimitReply()
     }
 }
 
-void testModeOnNonExistentChannel()
+static void testModeOnNonExistentChannel()
 {
     std::string password = "a";
     char *argv[] = {
@@ -1708,15 +1707,15 @@ void testModeOnNonExistentChannel()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("MODE #ghost +i\r\n");
         ch.handle(op);
 
-        assert(ser.getChannelsByName().find("#ghost") == NULL);
+        assert(ser._state.channelFindByName("#ghost") == NULL);
         // ERR_NOSUCHCHANNEL 403
         assert_has_msg(op, ":server 403 op #ghost :No such channel\r\n");
     }
@@ -1726,7 +1725,7 @@ void testModeOnNonExistentChannel()
     }
 }
 
-void testModeNotInChannel()
+static void testModeNotInChannel()
 {
     std::string password = "a";
     char *argv[] = {
@@ -1743,9 +1742,9 @@ void testModeNotInChannel()
     outside->addtoBuffer("PASS a\r\nNICK out\r\nUSER out 0 * :out\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(outside);
 
@@ -1756,7 +1755,7 @@ void testModeNotInChannel()
         outside->addtoBuffer("MODE #room +i\r\n");
         ch.handle(outside);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(!chan->isInviteOnly());
         // ERR_NOTONCHANNEL 442
         assert_has_msg(outside, ":server 442 out #room :You're not on that channel\r\n");
@@ -1767,7 +1766,7 @@ void testModeNotInChannel()
     }
 }
 
-void testModeGrantOpNoParamError()
+static void testModeGrantOpNoParamError()
 {
     std::string password = "a";
     char *argv[] = {
@@ -1781,9 +1780,9 @@ void testModeGrantOpNoParamError()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -1802,7 +1801,7 @@ void testModeGrantOpNoParamError()
     }
 }
 
-void testModeGrantOpNonExistentNickError()
+static void testModeGrantOpNonExistentNickError()
 {
     std::string password = "a";
     char *argv[] = {
@@ -1816,9 +1815,9 @@ void testModeGrantOpNonExistentNickError()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -1837,7 +1836,7 @@ void testModeGrantOpNonExistentNickError()
     }
 }
 
-void testModeGrantOpUserNotInChannelError()
+static void testModeGrantOpUserNotInChannelError()
 {
     std::string password = "a";
     char *argv[] = {
@@ -1854,9 +1853,9 @@ void testModeGrantOpUserNotInChannelError()
     outside->addtoBuffer("PASS a\r\nNICK out\r\nUSER out 0 * :out\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(outside);
 
@@ -1867,7 +1866,7 @@ void testModeGrantOpUserNotInChannelError()
         op->addtoBuffer("MODE #room +o out\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(!chan->hasOperator(outside));
         // ERR_USERNOTINCHANNEL 441
         assert_has_msg(op, ":server 441 op out #room :They aren't on that channel\r\n");
@@ -1878,7 +1877,7 @@ void testModeGrantOpUserNotInChannelError()
     }
 }
 
-void testModeGrantOpAlreadyOpIsIdempotent()
+static void testModeGrantOpAlreadyOpIsIdempotent()
 {
     std::string password = "a";
     char *argv[] = {
@@ -1895,9 +1894,9 @@ void testModeGrantOpAlreadyOpIsIdempotent()
     user->addtoBuffer("PASS a\r\nNICK user\r\nUSER user 0 * :user\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(user);
 
@@ -1908,13 +1907,13 @@ void testModeGrantOpAlreadyOpIsIdempotent()
 
         op->addtoBuffer("MODE #room +o user\r\n");
         ch.handle(op);
-        assert(ser.getChannelsByName().find("#room")->hasOperator(user));
+        assert(ser._state.channelFindByName("#room")->hasOperator(user));
 
         // Grant op again — must not crash or duplicate
         op->addtoBuffer("MODE #room +o user\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan->hasOperator(user));
         assert(chan->getMembers().size() == 2);
     }
@@ -1924,7 +1923,7 @@ void testModeGrantOpAlreadyOpIsIdempotent()
     }
 }
 
-void testModeRevokeOpNotOpIsIdempotent()
+static void testModeRevokeOpNotOpIsIdempotent()
 {
     std::string password = "a";
     char *argv[] = {
@@ -1941,9 +1940,9 @@ void testModeRevokeOpNotOpIsIdempotent()
     user->addtoBuffer("PASS a\r\nNICK user\r\nUSER user 0 * :user\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(user);
 
@@ -1956,7 +1955,7 @@ void testModeRevokeOpNotOpIsIdempotent()
         op->addtoBuffer("MODE #room -o user\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(!chan->hasOperator(user));
         assert(chan->getMembers().size() == 2);
     }
@@ -1966,7 +1965,7 @@ void testModeRevokeOpNotOpIsIdempotent()
     }
 }
 
-void testModeRevokeOpNoParamError()
+static void testModeRevokeOpNoParamError()
 {
     std::string password = "a";
     char *argv[] = {
@@ -1980,9 +1979,9 @@ void testModeRevokeOpNoParamError()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -1999,7 +1998,7 @@ void testModeRevokeOpNoParamError()
     }
 }
 
-void testModeSetKeyNoParamError()
+static void testModeSetKeyNoParamError()
 {
     std::string password = "a";
     char *argv[] = {
@@ -2013,9 +2012,9 @@ void testModeSetKeyNoParamError()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -2025,7 +2024,7 @@ void testModeSetKeyNoParamError()
         op->addtoBuffer("MODE #room +k\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan->getKey().empty());
         assert_has_msg(op, ":server 461 op MODE :Not enough parameters\r\n");
     }
@@ -2035,7 +2034,7 @@ void testModeSetKeyNoParamError()
     }
 }
 
-void testModeSetKeyWhenKeyAlreadySetError()
+static void testModeSetKeyWhenKeyAlreadySetError()
 {
     std::string password = "a";
     char *argv[] = {
@@ -2049,9 +2048,9 @@ void testModeSetKeyWhenKeyAlreadySetError()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -2063,7 +2062,7 @@ void testModeSetKeyWhenKeyAlreadySetError()
         op->addtoBuffer("MODE #room +k second\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         // ERR_KEYSET 467 — key already set
         assert_has_msg(op, ":server 467 op #room :Channel key already set\r\n");
         assert(chan->getKey() == "first");
@@ -2074,7 +2073,7 @@ void testModeSetKeyWhenKeyAlreadySetError()
     }
 }
 
-void testModeNonOpCannotSetKey()
+static void testModeNonOpCannotSetKey()
 {
     std::string password = "a";
     char *argv[] = {
@@ -2091,9 +2090,9 @@ void testModeNonOpCannotSetKey()
     reg->addtoBuffer("PASS a\r\nNICK reg\r\nUSER reg 0 * :reg\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(reg);
 
@@ -2105,7 +2104,7 @@ void testModeNonOpCannotSetKey()
         reg->addtoBuffer("MODE #room +k secret\r\n");
         ch.handle(reg);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan->getKey().empty());
         assert_has_msg(reg, ":server 482 reg #room :You're not channel operator\r\n");
     }
@@ -2115,7 +2114,7 @@ void testModeNonOpCannotSetKey()
     }
 }
 
-void testModeSetLimitNoParamError()
+static void testModeSetLimitNoParamError()
 {
     std::string password = "a";
     char *argv[] = {
@@ -2129,9 +2128,9 @@ void testModeSetLimitNoParamError()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -2141,7 +2140,7 @@ void testModeSetLimitNoParamError()
         op->addtoBuffer("MODE #room +l\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan->getUserLimit() == 0);
         assert_has_msg(op, ":server 461 op MODE :Not enough parameters\r\n");
     }
@@ -2151,7 +2150,7 @@ void testModeSetLimitNoParamError()
     }
 }
 
-void testModeSetLimitZeroError()
+static void testModeSetLimitZeroError()
 {
     std::string password = "a";
     char *argv[] = {
@@ -2165,9 +2164,9 @@ void testModeSetLimitZeroError()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -2177,7 +2176,7 @@ void testModeSetLimitZeroError()
         op->addtoBuffer("MODE #room +l 0\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan->getUserLimit() == 0);
         assert_has_msg(op, ":server 461 op MODE :Not enough parameters\r\n");
     }
@@ -2187,7 +2186,7 @@ void testModeSetLimitZeroError()
     }
 }
 
-void testModeSetLimitNonNumericError()
+static void testModeSetLimitNonNumericError()
 {
     std::string password = "a";
     char *argv[] = {
@@ -2201,9 +2200,9 @@ void testModeSetLimitNonNumericError()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -2213,7 +2212,7 @@ void testModeSetLimitNonNumericError()
         op->addtoBuffer("MODE #room +l abc\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan->getUserLimit() == 0);
         assert_has_msg(op, ":server 461 op MODE :Not enough parameters\r\n");
     }
@@ -2223,7 +2222,7 @@ void testModeSetLimitNonNumericError()
     }
 }
 
-void testModeNonOpCannotSetLimit()
+static void testModeNonOpCannotSetLimit()
 {
     std::string password = "a";
     char *argv[] = {
@@ -2240,9 +2239,9 @@ void testModeNonOpCannotSetLimit()
     reg->addtoBuffer("PASS a\r\nNICK reg\r\nUSER reg 0 * :reg\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(reg);
 
@@ -2254,7 +2253,7 @@ void testModeNonOpCannotSetLimit()
         reg->addtoBuffer("MODE #room +l 5\r\n");
         ch.handle(reg);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan->getUserLimit() == 0);
         assert_has_msg(reg, ":server 482 reg #room :You're not channel operator\r\n");
     }
@@ -2264,7 +2263,7 @@ void testModeNonOpCannotSetLimit()
     }
 }
 
-void testModeRemoveLimitWhenNoneSetIsIdempotent()
+static void testModeRemoveLimitWhenNoneSetIsIdempotent()
 {
     std::string password = "a";
     char *argv[] = {
@@ -2278,9 +2277,9 @@ void testModeRemoveLimitWhenNoneSetIsIdempotent()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -2290,7 +2289,7 @@ void testModeRemoveLimitWhenNoneSetIsIdempotent()
         op->addtoBuffer("MODE #room -l\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan->getUserLimit() == 0);
     }
     catch (...)
@@ -2299,7 +2298,7 @@ void testModeRemoveLimitWhenNoneSetIsIdempotent()
     }
 }
 
-void testModeNonOpCannotUnsetInviteOnly()
+static void testModeNonOpCannotUnsetInviteOnly()
 {
     std::string password = "a";
     char *argv[] = {
@@ -2316,9 +2315,9 @@ void testModeNonOpCannotUnsetInviteOnly()
     reg->addtoBuffer("PASS a\r\nNICK reg\r\nUSER reg 0 * :reg\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(reg);
 
@@ -2337,7 +2336,7 @@ void testModeNonOpCannotUnsetInviteOnly()
         reg->addtoBuffer("MODE #room -i\r\n");
         ch.handle(reg);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan->isInviteOnly());
         assert_has_msg(reg, ":server 482 reg #room :You're not channel operator\r\n");
     }
@@ -2347,7 +2346,7 @@ void testModeNonOpCannotUnsetInviteOnly()
     }
 }
 
-void testModeSetInviteOnlyAlreadySetIsIdempotent()
+static void testModeSetInviteOnlyAlreadySetIsIdempotent()
 {
     std::string password = "a";
     char *argv[] = {
@@ -2361,9 +2360,9 @@ void testModeSetInviteOnlyAlreadySetIsIdempotent()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -2375,7 +2374,7 @@ void testModeSetInviteOnlyAlreadySetIsIdempotent()
         op->addtoBuffer("MODE #room +i\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan->isInviteOnly());
     }
     catch (...)
@@ -2384,7 +2383,7 @@ void testModeSetInviteOnlyAlreadySetIsIdempotent()
     }
 }
 
-void testModeNonOpCannotUnsetTopicRestricted()
+static void testModeNonOpCannotUnsetTopicRestricted()
 {
     std::string password = "a";
     char *argv[] = {
@@ -2401,9 +2400,9 @@ void testModeNonOpCannotUnsetTopicRestricted()
     reg->addtoBuffer("PASS a\r\nNICK reg\r\nUSER reg 0 * :reg\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(reg);
 
@@ -2418,7 +2417,7 @@ void testModeNonOpCannotUnsetTopicRestricted()
         reg->addtoBuffer("MODE #room -t\r\n");
         ch.handle(reg);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan->isTopicRestricted());
         assert_has_msg(reg, ":server 482 reg #room :You're not channel operator\r\n");
     }
@@ -2428,7 +2427,7 @@ void testModeNonOpCannotUnsetTopicRestricted()
     }
 }
 
-void testModeUnsetTopicRestrictedReply()
+static void testModeUnsetTopicRestrictedReply()
 {
     std::string password = "a";
     char *argv[] = {
@@ -2442,9 +2441,9 @@ void testModeUnsetTopicRestrictedReply()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -2454,7 +2453,7 @@ void testModeUnsetTopicRestrictedReply()
         op->addtoBuffer("MODE #room -t\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(!chan->isTopicRestricted());
         assert_has_msg(op, ":op!op@server MODE #room -t\r\n");
     }
@@ -2464,7 +2463,7 @@ void testModeUnsetTopicRestrictedReply()
     }
 }
 
-void testModeUnknownFlagError()
+static void testModeUnknownFlagError()
 {
     std::string password = "a";
     char *argv[] = {
@@ -2478,9 +2477,9 @@ void testModeUnknownFlagError()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -2498,7 +2497,7 @@ void testModeUnknownFlagError()
     }
 }
 
-void testModeNoFlagReturnsChannelModeString()
+static void testModeNoFlagReturnsChannelModeString()
 {
     std::string password = "a";
     char *argv[] = {
@@ -2512,9 +2511,9 @@ void testModeNoFlagReturnsChannelModeString()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -2535,7 +2534,7 @@ void testModeNoFlagReturnsChannelModeString()
     }
 }
 
-void testModeCombinedPlusItBroadcast()
+static void testModeCombinedPlusItBroadcast()
 {
     std::string password = "a";
     char *argv[] = {
@@ -2552,9 +2551,9 @@ void testModeCombinedPlusItBroadcast()
     user->addtoBuffer("PASS a\r\nNICK user\r\nUSER user 0 * :user\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(user);
 
@@ -2567,7 +2566,7 @@ void testModeCombinedPlusItBroadcast()
         op->addtoBuffer("MODE #room +it\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan->isInviteOnly());
         assert(chan->isTopicRestricted());
         // Both members should receive one broadcast for the combined change
@@ -2580,7 +2579,7 @@ void testModeCombinedPlusItBroadcast()
     }
 }
 
-void testModeCombinedKeyAndLimitReply()
+static void testModeCombinedKeyAndLimitReply()
 {
     std::string password = "a";
     char *argv[] = {
@@ -2594,9 +2593,9 @@ void testModeCombinedKeyAndLimitReply()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -2606,7 +2605,7 @@ void testModeCombinedKeyAndLimitReply()
         op->addtoBuffer("MODE #room +kl secret 10\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan->getKey() == "secret");
         assert(chan->getUserLimit() == 10);
         assert_has_msg(op, ":op!op@server MODE #room +kl secret 10\r\n");
@@ -2617,7 +2616,7 @@ void testModeCombinedKeyAndLimitReply()
     }
 }
 
-void testModeNonExistentChannelError()
+static void testModeNonExistentChannelError()
 {
     std::string password = "a";
     char *argv[] = {
@@ -2631,15 +2630,15 @@ void testModeNonExistentChannelError()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("MODE #ghost +i\r\n");
         ch.handle(op);
 
-        assert(ser.getChannelsByName().find("#ghost") == NULL);
+        assert(ser._state.channelFindByName("#ghost") == NULL);
         // ERR_NOSUCHCHANNEL 403
         assert_has_msg(op, ":server 403 op #ghost :No such channel\r\n");
     }
@@ -2649,7 +2648,7 @@ void testModeNonExistentChannelError()
     }
 }
 
-void testModeNotInChannelError()
+static void testModeNotInChannelError()
 {
     std::string password = "a";
     char *argv[] = {
@@ -2666,9 +2665,9 @@ void testModeNotInChannelError()
     outside->addtoBuffer("PASS a\r\nNICK out\r\nUSER out 0 * :out\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(outside);
 
@@ -2678,7 +2677,7 @@ void testModeNotInChannelError()
         outside->addtoBuffer("MODE #room +t\r\n");
         ch.handle(outside);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(!chan->isTopicRestricted());
         // ERR_NOTONCHANNEL 442
         assert_has_msg(outside, ":server 442 out #room :You're not on that channel\r\n");
@@ -2693,7 +2692,7 @@ void testModeNotInChannelError()
 
 #pragma region INVITE_REPLY
 
-void testInviteReply()
+static void testInviteReply()
 {
     std::string password = "a";
     char *argv[] = {
@@ -2710,9 +2709,9 @@ void testInviteReply()
     guest->addtoBuffer("PASS a\r\nNICK guest\r\nUSER guest 0 * :guest\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(guest);
 
@@ -2733,7 +2732,7 @@ void testInviteReply()
     }
 }
 
-void testInviteAllowsJoinToInviteOnlyChannel()
+static void testInviteAllowsJoinToInviteOnlyChannel()
 {
     std::string password = "a";
     char *argv[] = {
@@ -2750,9 +2749,9 @@ void testInviteAllowsJoinToInviteOnlyChannel()
     guest->addtoBuffer("PASS a\r\nNICK guest\r\nUSER guest 0 * :guest\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(guest);
 
@@ -2766,7 +2765,7 @@ void testInviteAllowsJoinToInviteOnlyChannel()
         guest->addtoBuffer("JOIN #vip\r\n");
         ch.handle(guest);
 
-        Channel* chan = ser.getChannelsByName().find("#vip");
+        Channel* chan = ser._state.channelFindByName("#vip");
         assert(chan->hasMember(guest));
     }
     catch (...)
@@ -2775,7 +2774,7 @@ void testInviteAllowsJoinToInviteOnlyChannel()
     }
 }
 
-void testInviteNonOpError()
+static void testInviteNonOpError()
 {
     std::string password = "a";
     char *argv[] = {
@@ -2795,9 +2794,9 @@ void testInviteNonOpError()
     target->addtoBuffer("PASS a\r\nNICK target\r\nUSER target 0 * :target\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(reg);
         ch.handle(target);
@@ -2817,7 +2816,7 @@ void testInviteNonOpError()
         reg->addtoBuffer("INVITE target #vip\r\n");
         ch.handle(reg);
 
-        Channel* chan = ser.getChannelsByName().find("#vip");
+        Channel* chan = ser._state.channelFindByName("#vip");
         assert(!chan->hasMember(target));
         assert_has_msg(reg, ":server 482 reg #vip :You're not channel operator\r\n");
     }
@@ -2827,7 +2826,7 @@ void testInviteNonOpError()
     }
 }
 
-void testInviteToNonExistentChannelError()
+static void testInviteToNonExistentChannelError()
 {
     std::string password = "a";
     char *argv[] = {
@@ -2844,9 +2843,9 @@ void testInviteToNonExistentChannelError()
     guest->addtoBuffer("PASS a\r\nNICK guest\r\nUSER guest 0 * :guest\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(guest);
 
@@ -2862,7 +2861,7 @@ void testInviteToNonExistentChannelError()
     }
 }
 
-void testInviteNonExistentUserError()
+static void testInviteNonExistentUserError()
 {
     std::string password = "a";
     char *argv[] = {
@@ -2876,9 +2875,9 @@ void testInviteNonExistentUserError()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
@@ -2889,7 +2888,7 @@ void testInviteNonExistentUserError()
 
         // ERR_NOSUCHNICK 401
         assert_has_msg(op, ":server 401 op ghost :No such nick/channel\r\n");
-        assert(ser.getChannelsByName().find("#room")->getMembers().size() == 1);
+        assert(ser._state.channelFindByName("#room")->getMembers().size() == 1);
     }
     catch (...)
     {
@@ -2897,7 +2896,7 @@ void testInviteNonExistentUserError()
     }
 }
 
-void testInviteUserAlreadyInChannelError()
+static void testInviteUserAlreadyInChannelError()
 {
     std::string password = "a";
     char *argv[] = {
@@ -2914,9 +2913,9 @@ void testInviteUserAlreadyInChannelError()
     user->addtoBuffer("PASS a\r\nNICK user\r\nUSER user 0 * :user\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(user);
 
@@ -2931,7 +2930,7 @@ void testInviteUserAlreadyInChannelError()
 
         // ERR_USERONCHANNEL 443
         assert_has_msg(op, ":server 443 op user #room :is already on channel\r\n");
-        assert(ser.getChannelsByName().find("#room")->getMembers().size() == 2);
+        assert(ser._state.channelFindByName("#room")->getMembers().size() == 2);
     }
     catch (...)
     {
@@ -2939,7 +2938,7 @@ void testInviteUserAlreadyInChannelError()
     }
 }
 
-void testInviteNotInChannelError()
+static void testInviteNotInChannelError()
 {
     std::string password = "a";
     char *argv[] = {
@@ -2959,9 +2958,9 @@ void testInviteNotInChannelError()
     target->addtoBuffer("PASS a\r\nNICK target\r\nUSER target 0 * :target\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(outside);
         ch.handle(target);
@@ -2973,7 +2972,7 @@ void testInviteNotInChannelError()
         outside->addtoBuffer("INVITE target #room\r\n");
         ch.handle(outside);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(!chan->hasMember(target));
         // ERR_NOTONCHANNEL 442
         assert_has_msg(outside, ":server 442 out #room :You're not on that channel\r\n");
@@ -2988,7 +2987,7 @@ void testInviteNotInChannelError()
 
 #pragma region JOIN_REPLY
 
-void testJoinReply()
+static void testJoinReply()
 {
     std::string password = "a";
     char *argv[] = {
@@ -3002,15 +3001,15 @@ void testJoinReply()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #room\r\n");
         ch.handle(op);
 
-        Channel* chan = ser.getChannelsByName().find("#room");
+        Channel* chan = ser._state.channelFindByName("#room");
         assert(chan != NULL);
         assert(chan->hasMember(op));
         // JOIN broadcast back to self
@@ -3026,7 +3025,7 @@ void testJoinReply()
     }
 }
 
-void testJoinBroadcastToExistingMembers()
+static void testJoinBroadcastToExistingMembers()
 {
     std::string password = "a";
     char *argv[] = {
@@ -3043,9 +3042,9 @@ void testJoinBroadcastToExistingMembers()
     user->addtoBuffer("PASS a\r\nNICK user\r\nUSER user 0 * :user\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(user);
 
@@ -3066,7 +3065,7 @@ void testJoinBroadcastToExistingMembers()
     }
 }
 
-void testJoinInviteOnlyWithoutInviteError()
+static void testJoinInviteOnlyWithoutInviteError()
 {
     std::string password = "a";
     char *argv[] = {
@@ -3083,9 +3082,9 @@ void testJoinInviteOnlyWithoutInviteError()
     stranger->addtoBuffer("PASS a\r\nNICK str\r\nUSER str 0 * :str\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(stranger);
 
@@ -3097,7 +3096,7 @@ void testJoinInviteOnlyWithoutInviteError()
         stranger->addtoBuffer("JOIN #vip\r\n");
         ch.handle(stranger);
 
-        Channel* chan = ser.getChannelsByName().find("#vip");
+        Channel* chan = ser._state.channelFindByName("#vip");
         assert(!chan->hasMember(stranger));
         // ERR_INVITEONLYCHAN 473
         assert_has_msg(stranger, ":server 473 str #vip :Cannot join channel (+i)\r\n");
@@ -3108,7 +3107,7 @@ void testJoinInviteOnlyWithoutInviteError()
     }
 }
 
-void testJoinWrongKeyError()
+static void testJoinWrongKeyError()
 {
     std::string password = "a";
     char *argv[] = {
@@ -3125,9 +3124,9 @@ void testJoinWrongKeyError()
     user->addtoBuffer("PASS a\r\nNICK user\r\nUSER user 0 * :user\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(user);
 
@@ -3139,7 +3138,7 @@ void testJoinWrongKeyError()
         user->addtoBuffer("JOIN #locked wrong\r\n");
         ch.handle(user);
 
-        Channel* chan = ser.getChannelsByName().find("#locked");
+        Channel* chan = ser._state.channelFindByName("#locked");
         assert(!chan->hasMember(user));
         // ERR_BADCHANNELKEY 475
         assert_has_msg(user, ":server 475 user #locked :Cannot join channel (+k)\r\n");
@@ -3150,7 +3149,7 @@ void testJoinWrongKeyError()
     }
 }
 
-void testJoinChannelFullError()
+static void testJoinChannelFullError()
 {
     std::string password = "a";
     char *argv[] = {
@@ -3167,9 +3166,9 @@ void testJoinChannelFullError()
     extra->addtoBuffer("PASS a\r\nNICK extra\r\nUSER extra 0 * :extra\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
         ch.handle(extra);
 
@@ -3181,7 +3180,7 @@ void testJoinChannelFullError()
         extra->addtoBuffer("JOIN #small\r\n");
         ch.handle(extra);
 
-        Channel* chan = ser.getChannelsByName().find("#small");
+        Channel* chan = ser._state.channelFindByName("#small");
         assert(!chan->hasMember(extra));
         // ERR_CHANNELISFULL 471
         assert_has_msg(extra, ":server 471 extra #small :Cannot join channel (+l)\r\n");
@@ -3192,7 +3191,7 @@ void testJoinChannelFullError()
     }
 }
 
-void testJoinBadChannelNameError()
+static void testJoinBadChannelNameError()
 {
     std::string password = "a";
     char *argv[] = {
@@ -3206,16 +3205,16 @@ void testJoinBadChannelNameError()
     op->addtoBuffer("PASS a\r\nNICK op\r\nUSER op 0 * :op\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(op);
 
         op->addtoBuffer("JOIN #\r\n");
         ch.handle(op);
 
-        assert(ser.getChannelsByName().find("#") == NULL);
-        assert(ser.getChannels().empty());
+        assert(ser._state.channelFindByName("#") == NULL);
+        assert(ser._state._channels.empty());
         // ERR_BADCHANMASK 476
         assert_has_msg(op, ":server 476 op # :Bad Channel Mask\r\n");
     }
@@ -3225,7 +3224,7 @@ void testJoinBadChannelNameError()
     }
 }
 
-void testJoinWithoutRegistrationError()
+static void testJoinWithoutRegistrationError()
 {
     std::string password = "a";
     char *argv[] = {
@@ -3240,12 +3239,12 @@ void testJoinWithoutRegistrationError()
     cl->addtoBuffer("JOIN #room\r\n");
     try
     {
-        FileSendHandler fsh(ser);
+        FileSendHandler fsh(ser._state);
         ReplyHandler rh(ser);
-         CommandHandler ch(ser, rh, fsh);;
+         CommandHandler ch(ser._state, rh, fsh);;
         ch.handle(cl);
 
-        assert(ser.getChannels().empty());
+        assert(ser._state._channels.empty());
         // ERR_NOTREGISTERED 451
         assert_has_msg(cl, ":server 451 * :You have not registered\r\n");
     }
@@ -3261,105 +3260,113 @@ void testJoinWithoutRegistrationError()
 
 #pragma endregion
 
+    static void start()
+    {
+        std::stringstream buffer;
+        std::streambuf* oldCoutBuffer = std::cout.rdbuf();
+
+        std::cout.rdbuf(buffer.rdbuf());
+
+        // BLUH BLUH
+        testCorrectPassword();
+        testIncorrectPassword();
+        testFullRegistration();
+        testJoinChannel();
+        testCreateBadChannel();
+        testJoinInvalidChannel();
+        testJoinMultipleChannels();
+        testJoinWithChannelKey();
+        testModeOperatorStatus();
+
+        // MODE test
+        testModeRevokeOperator();
+        testModeNonOpCannotGrantOp();
+        testModeSetInviteOnly();
+        testModeUnsetInviteOnly();
+        testModeSetTopicRestricted();
+        testModeNonOpCannotSetTopic();
+        testModeSetChannelKey();
+        testModeRemoveChannelKey();
+        testModeSetUserLimit();
+        testModeRemoveUserLimit();
+
+        // INVITE test
+        testInviteUserToInviteOnlyChannel();
+        testUninvitedUserCannotJoinInviteOnlyChannel();
+        testNonOpCannotInvite();
+        testInviteToNonExistentChannel();
+        testInviteNonExistentUser();
+
+        // JOIN test
+        testJoinWithCorrectKey();
+        testJoinWithWrongKey();
+        testJoinChannelAtUserLimit();
+        testJoinAlreadyInChannel();
+        testFirstJoinerBecomesOperator();
+
+        // JOIN REPLY
+        testJoinReply();
+        testJoinBroadcastToExistingMembers();
+        testJoinInviteOnlyWithoutInviteError();
+        testJoinWrongKeyError();
+        testJoinChannelFullError();
+        testJoinBadChannelNameError();
+        testJoinWithoutRegistrationError();
+
+        // INVITE REPLY
+        testInviteReply();
+        testInviteAllowsJoinToInviteOnlyChannel();
+        testInviteNonOpError();
+        testInviteToNonExistentChannelError();
+        testInviteNonExistentUserError();
+        testInviteUserAlreadyInChannelError();
+        testInviteNotInChannelError();
+
+        // MODE reply
+        testModeGrantOpReply();
+        testModeRevokeOpReply();
+        testModeSetInviteOnlyReply();
+        testModeUnsetInviteOnlyReply();
+        testModeNonOpCannotSetInviteOnly();
+        testModeSetTopicRestrictedReply();
+        testModeNonOpCannotSetTopicRestricted();
+        testModeSetKeyReply();
+        testModeRemoveKeyReply();
+        testModeSetUserLimitReply();
+        testModeRemoveUserLimitReply();
+        testModeOnNonExistentChannel();
+        testModeNotInChannel();
+        testModeNotInChannelError();
+        testModeNonExistentChannelError();
+        testModeCombinedKeyAndLimitReply();
+        testModeNoFlagReturnsChannelModeString();
+        testModeCombinedPlusItBroadcast();
+        testModeUnknownFlagError();
+        testModeUnsetTopicRestrictedReply();
+        testModeNonOpCannotUnsetTopicRestricted();
+        testModeRemoveLimitWhenNoneSetIsIdempotent();
+        testModeSetLimitNoParamError();
+        testModeSetLimitZeroError();
+        testModeSetLimitNonNumericError();
+        testModeNonOpCannotSetLimit();
+        testModeNonOpCannotSetKey();
+        testModeSetKeyWhenKeyAlreadySetError();
+        testModeSetKeyNoParamError();
+        testModeRevokeOpNoParamError();
+        testModeRevokeOpNotOpIsIdempotent();
+        testModeGrantOpAlreadyOpIsIdempotent();
+        testModeGrantOpUserNotInChannelError();
+        testModeGrantOpNonExistentNickError();
+        testModeGrantOpNoParamError();
+        
+        std::cout.rdbuf(oldCoutBuffer);
+        std::cout << "All tests finished" << std::endl;
+    }
+};
+
+std::string Tester::port = "6667";
+
 int main()
 {
-    std::stringstream buffer;
-    std::streambuf* oldCoutBuffer = std::cout.rdbuf();
-
-    std::cout.rdbuf(buffer.rdbuf());
-
-    // BLUH BLUH
-    testCorrectPassword();
-    testIncorrectPassword();
-    testFullRegistration();
-    testJoinChannel();
-    testCreateBadChannel();
-    testJoinInvalidChannel();
-    testJoinMultipleChannels();
-    testJoinWithChannelKey();
-    testModeOperatorStatus();
-
-    // MODE test
-    testModeRevokeOperator();
-    testModeNonOpCannotGrantOp();
-    testModeSetInviteOnly();
-    testModeUnsetInviteOnly();
-    testModeSetTopicRestricted();
-    testModeNonOpCannotSetTopic();
-    testModeSetChannelKey();
-    testModeRemoveChannelKey();
-    testModeSetUserLimit();
-    testModeRemoveUserLimit();
-
-    // INVITE test
-    testInviteUserToInviteOnlyChannel();
-    testUninvitedUserCannotJoinInviteOnlyChannel();
-    testNonOpCannotInvite();
-    testInviteToNonExistentChannel();
-    testInviteNonExistentUser();
-
-    // JOIN test
-    testJoinWithCorrectKey();
-    testJoinWithWrongKey();
-    testJoinChannelAtUserLimit();
-    testJoinAlreadyInChannel();
-    testFirstJoinerBecomesOperator();
-
-    // JOIN REPLY
-    testJoinReply();
-    testJoinBroadcastToExistingMembers();
-    testJoinInviteOnlyWithoutInviteError();
-    testJoinWrongKeyError();
-    testJoinChannelFullError();
-    testJoinBadChannelNameError();
-    testJoinWithoutRegistrationError();
-
-    // INVITE REPLY
-    testInviteReply();
-    testInviteAllowsJoinToInviteOnlyChannel();
-    testInviteNonOpError();
-    testInviteToNonExistentChannelError();
-    testInviteNonExistentUserError();
-    testInviteUserAlreadyInChannelError();
-    testInviteNotInChannelError();
-
-    // MODE reply
-    testModeGrantOpReply();
-    testModeRevokeOpReply();
-    testModeSetInviteOnlyReply();
-    testModeUnsetInviteOnlyReply();
-    testModeNonOpCannotSetInviteOnly();
-    testModeSetTopicRestrictedReply();
-    testModeNonOpCannotSetTopicRestricted();
-    testModeSetKeyReply();
-    testModeRemoveKeyReply();
-    testModeSetUserLimitReply();
-    testModeRemoveUserLimitReply();
-    testModeOnNonExistentChannel();
-    testModeNotInChannel();
-    testModeNotInChannelError();
-    testModeNonExistentChannelError();
-    testModeCombinedKeyAndLimitReply();
-    testModeNoFlagReturnsChannelModeString();
-    testModeCombinedPlusItBroadcast();
-    testModeUnknownFlagError();
-    testModeUnsetTopicRestrictedReply();
-    testModeNonOpCannotUnsetTopicRestricted();
-    testModeRemoveLimitWhenNoneSetIsIdempotent();
-    testModeSetLimitNoParamError();
-    testModeSetLimitZeroError();
-    testModeSetLimitNonNumericError();
-    testModeNonOpCannotSetLimit();
-    testModeNonOpCannotSetKey();
-    testModeSetKeyWhenKeyAlreadySetError();
-    testModeSetKeyNoParamError();
-    testModeRevokeOpNoParamError();
-    testModeRevokeOpNotOpIsIdempotent();
-    testModeGrantOpAlreadyOpIsIdempotent();
-    testModeGrantOpUserNotInChannelError();
-    testModeGrantOpNonExistentNickError();
-    testModeGrantOpNoParamError();
-    
-    std::cout.rdbuf(oldCoutBuffer);
-    std::cout << "All tests finished" << std::endl;
+    Tester::start();
 }

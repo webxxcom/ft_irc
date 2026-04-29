@@ -9,8 +9,8 @@
 
 ClientState::ClientState() : pass_ok(false), has_nick(false), has_user(false) { }
 
-Client::Client() : _state() {}
-Client::Client(int fd) : _state(), _fd(fd)
+Client::Client() { }
+Client::Client(int fd) : _fd(fd)
 {
 	std::cout << "Client connected" << std::endl;
 }
@@ -33,7 +33,7 @@ Client &Client::operator=(const Client &other)
 }
 
 Client::~Client() {
-	// std::cout << "Client disconnected" << std::endl;
+	close(_fd);
 }
 
 bool Client::operator==(Client const &other) const { return _fd == other._fd; }

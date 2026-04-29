@@ -1,10 +1,15 @@
 #include "CommandHandler.hpp"
-#include "Server.hpp"
+#include "ServerNotifyCodes.hpp"
+#include "ServerState.hpp"
+#include "FileSendHandler.hpp"
+#include "Client.hpp"
+#include "Channel.hpp"
+#include "ReplyHandler.hpp"
+
 #include <cstdlib>
 #include <iostream>
 #include <cstdio>
 #include <sys/stat.h>
-#include "FileSendHandler.hpp"
 
 using namespace irc;
 
@@ -25,8 +30,8 @@ void CommandHandler::setupCommands()
 	_commandMap["FILE"]  	= &CommandHandler::handleFile;
 }
 
-CommandHandler::CommandHandler(Server& server, ReplyHandler &rh, FileSendHandler &fsh)
-	: _server(server), _replyHandler(rh), _fileSendHandler(fsh)
+CommandHandler::CommandHandler(ServerState& server, ReplyHandler &rh, FileSendHandler &fsh)
+	: _registry(server), _replyHandler(rh), _fileSendHandler(fsh)
 {
 	setupCommands();
 }
@@ -47,6 +52,9 @@ void CommandHandler::handle(Client *cl)
 		std::string command;
 		line >> command;
 
+		if (command.empty())
+			continue;
+
 		// Find the command in the map
 		std::map<std::string, CommandFn>::iterator it = _commandMap.find(command);
 		if (it != _commandMap.end())
@@ -61,7 +69,7 @@ void CommandHandler::handlePass(Client *client, std::stringstream &command)
 	std::string token;
 
 	command >> token;
-	if (token != _server._password)
+	if (token != _registry.getPassword())
 		_replyHandler.passwdMismatch(client);
 	else
 		client->setPassword(token);
@@ -123,15 +131,10 @@ void CommandHandler::handleNick(Client *client, std::stringstream& command)
 	if (!isValidNick(nick))
 		return _replyHandler.erroneusNick(client, nick);
 
-	if (!_server._clientsByName.find(nick))
-	{
-		if (client->hasNickname())
-			_server._clientsByName.erase(client->getNickname());
-		client->setNickname(nick);
-		_server._clientsByName.insert(std::pair<std::string, Client *>(nick, client));
-	}
-	else
+	if (_registry.clientFindByNickname(nick))
 		_replyHandler.nicknameAlreadyInUse(client, nick);
+	else
+		_registry.clientChangeName(client, nick);
 }
 
 void CommandHandler::handleCap(Client *client, std::stringstream& command)
@@ -171,17 +174,17 @@ void CommandHandler::handleJoin(Client *client, std::stringstream &command)
 			continue;
 		}
 
-		Channel *ch = _server._channelsByName.find(channelName);
+		Channel *ch = _registry.channelFindByName(channelName);
 		if (!ch)
-			ch = _server.createChannel(client, channelName);
+			ch = _registry.createChannel(client, channelName);
 		else
 		{
-			if ((ch->getModes() & Channel::E_INVITE_ONLY) && !client->isInvitedTo(ch))
+			if (ch->isInviteOnly() && !client->isInvitedTo(ch))
 			{
 				_replyHandler.inviteOnlyChannel(client, channelName);
 				continue;
 			}
-			else if ((ch->getModes() & Channel::E_USER_LIMIT) && ch->getMembers().size() >= ch->getUserLimit())
+			else if (ch->isFull())
 			{
 				_replyHandler.channelIsFull(client, channelName);
 				continue;
@@ -222,9 +225,12 @@ void CommandHandler::handlePrivmsg(Client *client, std::stringstream &command)
 	if (target.empty())
 		return _replyHandler.noRecipient(client, "PRIVMSG");
 
+	if (message[0] == ' ')
+		message.erase(0, 1);
+
 	if (target[0] == '#')
 	{
-		Channel *ch = _server._channelsByName.find(target);
+		Channel *ch = _registry.channelFindByName(target);
 		if (!ch)
 			return _replyHandler.noSuchChannel(client, target);
 		if (!ch->hasMember(client))
@@ -233,7 +239,7 @@ void CommandHandler::handlePrivmsg(Client *client, std::stringstream &command)
 	}
 	else
 	{
-		Client *cl = _server._clientsByName.find(target);
+		Client *cl = _registry.clientFindByNickname(target);
 		if (!cl)
 			return _replyHandler.noSuchNick(client, target);
 		client->receiveMsg(client->getFullUserPrefix() + " PRIVMSG " + target + " " + message + "\r\n");
@@ -252,7 +258,7 @@ void CommandHandler::handleKick(Client *client, std::stringstream &command)
 	if (channel[0] != '#' || channel.size() < 2)
 		return ;
 
-	Channel * ch = _server._channelsByName.find(channel);
+	Channel * ch = _registry.channelFindByName(channel);
 	if (!ch)
 		return _replyHandler.noSuchChannel(client, channel);
 
@@ -286,7 +292,7 @@ void CommandHandler::handleInvite(Client *client, std::stringstream &command)
 	if (channelName[0] != '#' || channelName.size() < 2)
 		return ;
 
-	Channel * ch = _server._channelsByName.find(channelName);
+	Channel * ch = _registry.channelFindByName(channelName);
 	if (!ch)
 		return _replyHandler.noSuchChannel(client, channelName);
 
@@ -295,7 +301,7 @@ void CommandHandler::handleInvite(Client *client, std::stringstream &command)
 	if ((ch->getModes() & Channel::E_INVITE_ONLY) && !ch->hasOperator(client))
 		return _replyHandler.chanOpPrivsNeeded(client, channelName);
 
-	Client *invitee = _server._clientsByName.find(nickname);
+	Client *invitee = _registry.clientFindByNickname(nickname);
 	if (!invitee)
 		return _replyHandler.noSuchNick(client, nickname);
 
@@ -314,7 +320,7 @@ void CommandHandler::handleTopic(Client *client, std::stringstream &command)
 	if (channelName[0] != '#')
 		return _replyHandler.needMoreParams(client, "TOPIC");
 
-	Channel *ch = _server._channelsByName.find(channelName);
+	Channel *ch = _registry.channelFindByName(channelName);
 	if (!ch)
 		return _replyHandler.noSuchChannel(client, channelName);
 	if (!ch->hasMember(client))
@@ -361,7 +367,7 @@ void CommandHandler::handleMode(Client *client, std::stringstream &command)
 	// Setting modes for a channel
 	if (first[0] == '#')
 	{
-		Channel *ch = _server._channelsByName.find(first);
+		Channel *ch = _registry.channelFindByName(first);
 		if (!ch)
 			return _replyHandler.noSuchChannel(client, first);
 
@@ -494,7 +500,7 @@ void CommandHandler::handlePart(Client *client, std::stringstream &command)
 	std::string chanName;
 	while (std::getline(channelsStream, chanName, ','))
 	{
-		Channel *ch = _server._channelsByName.find(chanName);
+		Channel *ch = _registry.channelFindByName(chanName);
 		if (!ch)
 		{
 			_replyHandler.noSuchChannel(client, chanName);
@@ -509,7 +515,7 @@ void CommandHandler::handlePart(Client *client, std::stringstream &command)
 		ch->broadcast(msg);
 		ch->removeMember(client);
 		if (ch->isEmpty())
-			_server.deleteChannel(ch);
+			_registry.deleteChannel(ch);
 	}
 }
 
@@ -518,6 +524,7 @@ bool fileExists(const std::string& path)
     struct stat st;
     return ::stat(path.c_str(), &st) == 0;
 }
+
 //FILE SN <receiver nickname> <filename>
 //:<full prefix> FILE REQ <token> <filename> <filesize> <port>
 //FILE ACC <token>
@@ -535,7 +542,7 @@ void CommandHandler::handleFile(Client *client, std::stringstream &command)
 		if (nick.empty() || filename.empty())
 			return _replyHandler.needMoreParams(client, "SEND");
 		
-		Client *cl = _server._clientsByName.find(nick);
+		Client *cl = _registry.clientFindByNickname(nick);
 		if (!cl)
 			return _replyHandler.noSuchNick(client, nick);
 		if (!fileExists(filename))
@@ -547,7 +554,7 @@ void CommandHandler::handleFile(Client *client, std::stringstream &command)
 	command >> token;
 	try
 	{
-		TransferSession *ts = _server._pendingTransfers.at(token);
+		TransferSession *ts = _registry.transferSessionFindByToken(token);
 		if (cmd == "REQ")
 		{
 			// Do nothing client must reply
@@ -567,7 +574,7 @@ void CommandHandler::handleFile(Client *client, std::stringstream &command)
 
 Client *CommandHandler::clientLooksForUserInChannel(Client *client, std::string const &nick, Channel *ch) const
 {
-	Client * target = _server._clientsByName.find(nick);
+	Client * target = _registry.clientFindByNickname(nick);
 	if (!target)
 	{
 		_replyHandler.noSuchNick(client, nick);

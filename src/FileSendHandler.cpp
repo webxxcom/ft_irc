@@ -1,4 +1,3 @@
-#include "FileSendHandler.hpp"
 #include "Server.hpp"
 
 #include <fstream>
@@ -11,6 +10,8 @@
 #include <cstring>
 #include <unistd.h>
 #include <sstream>
+#include "FileSendHandler.hpp"
+#include "TransferSession.hpp"
 
 static long verifyAndGetSize(std::string const& path)
 {
@@ -23,7 +24,7 @@ static long verifyAndGetSize(std::string const& path)
     return (long)(st.st_size);
 }
 
-int createListener(int port)
+int createListener(int port, int &realPort)
 {
     int fd = ::socket(AF_INET, SOCK_STREAM, 0);
     if (fd < 0)
@@ -51,10 +52,20 @@ int createListener(int port)
         return -1;
     }
 
+    sockaddr_in bound;
+    socklen_t len = sizeof(bound);
+
+    if (getsockname(fd, (sockaddr*)&bound, &len) < 0)
+    {
+        close(fd);
+        return -1;
+    }
+
+    realPort = ntohs(bound.sin_port);
     return fd;
 }
 
-FileSendHandler::FileSendHandler(Server &server) : _server(server) { }
+FileSendHandler::FileSendHandler(ServerState &server) : _serverState(server) { }
 
 std::string makeToken()
 {
@@ -69,7 +80,8 @@ void FileSendHandler::request(Client *sender, Client *recevier, std::string cons
     TransferSession *ts = new TransferSession();
     ts->file = filename;
     ts->size = verifyAndGetSize(filename);
-    ts->listenerFd = createListener(0);
+    int port;
+    ts->listenerFd = createListener(0, port);
     ts->state = ts->WAITING_RESPONSE;
     ts->token = makeToken();
     ts->to = recevier;
@@ -77,9 +89,9 @@ void FileSendHandler::request(Client *sender, Client *recevier, std::string cons
 
     std::ostringstream oss;
     oss << ":" << sender->getFullUserPrefix() << " FILE REQ "
-        << ts->token << " " << ts->file << " " << ts->size << " " << ts->listenerFd << "\r\n";
+        << ts->token << " " << ts->file << " " << ts->size << " " << port << "\r\n";
     recevier->receiveMsg(oss.str());
-    _server.addTransferSession(ts);
+    _serverState.addTransferSession(ts);
 }
 
 bool openTransferSocket(TransferSession *ts)

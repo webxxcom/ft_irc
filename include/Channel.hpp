@@ -53,10 +53,13 @@ class Channel {
 	std::string						getIrcModes() 		const;
 	size_t							getUserLimit() 		const;
 	bool							isInviteOnly()		const;
-	bool							isTopicRestricted()	const;
-	bool							isEmpty()			const;
 	std::string const&				getKey()			const;
 	const ChannelTopic&				getTopic()			const;
+	bool							isTopicRestricted()	const;
+	bool							isEmpty()			const;
+	bool							hasUserLimit()		const;
+	bool							hasKey()			const;
+	bool							isFull()		const;
 
 	Client *   						hasMember(std::string const& nick)    const;
 	bool                        	hasMember(Client *cl)                 const;

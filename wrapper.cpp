@@ -93,6 +93,8 @@ static int connectToServer(const std::string& host, const std::string& port)
 
         if (connect(sock, p->ai_addr, p->ai_addrlen) == 0)
             break;
+        else
+            std::cout << "connect failed: " << strerror(errno) << "\n";
 
         close(sock);
         sock = -1;
@@ -207,7 +209,7 @@ static void handleCommand(int sock, const std::string& input)
         std::stringstream portStr;
         portStr << it->second.port;
 
-        int fileSock = connectToServer("127.0.0.1", portStr.str());
+        int fileSock = connectToServer("localhost", portStr.str());
         if (fileSock < 0)
         {
             std::cout << "Failed to connect for file transfer\n";

@@ -3,7 +3,7 @@
 #include <map>
 #include <sstream>
 
-class Server;
+class ServerState;
 class Client;
 class Channel;
 class ReplyHandler;
@@ -11,7 +11,7 @@ class FileSendHandler;
 
 class CommandHandler {
 public:
-	CommandHandler(Server &server, ReplyHandler& rh, FileSendHandler &fsh);
+	CommandHandler(ServerState &server, ReplyHandler& rh, FileSendHandler &fsh);
 
 	void handle(Client *cl);
 
@@ -19,7 +19,7 @@ private:
 	typedef void (CommandHandler::*CommandFn)(Client *, std::stringstream&);
 
 	std::map<std::string, CommandFn>	_commandMap;
-	Server& 							_server;
+	ServerState& 						_registry;
 	ReplyHandler& 						_replyHandler;
 	FileSendHandler&					_fileSendHandler;
 

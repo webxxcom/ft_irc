@@ -15,10 +15,13 @@ std::vector<std::string> const&		Channel::getMessages() 				const 	{ return _mes
 unsigned int 						Channel::getModes() 				const 	{ return _modes._modes; }
 const ChannelTopic&					Channel::getTopic()					const 	{ return _topic; }
 size_t								Channel::getUserLimit()				const 	{ return _modes._userLimit; }
+std::string const&					Channel::getKey() 					const 	{ return _modes._key; }
 bool								Channel::isInviteOnly()				const 	{ return _modes._modes & E_INVITE_ONLY; }
 bool 								Channel::isTopicRestricted()		const 	{ return _modes._modes & E_TOPIC_RESTRICT; }
-bool 								Channel::isEmpty() 					const 	{ return _members.empty(); }
-std::string const&					Channel::getKey() 					const	{ return _modes._key; }
+bool 								Channel::hasUserLimit() 			const 	{ return _modes._modes & E_USER_LIMIT; }
+bool 								Channel::hasKey() 					const 	{ return _modes._modes & E_CHANNEL_KEY; }
+bool 								Channel::isFull() 					const 	{ return hasUserLimit() && _members.size() >= _modes._userLimit; }
+bool								Channel::isEmpty() 					const 	{ return _members.empty(); }
 bool 								Channel::hasMember(Client *cl) 		const 	{ return _members.find(cl) != _members.end(); }
 bool 								Channel::hasOperator(Client *cl) 	const	{ return _operators.find(cl) != _operators.end(); }
 
@@ -30,16 +33,16 @@ std::string Channel::getIrcModes() const
 	if (_modes._modes == 0)
 		return "";
 	flags.push_back('+');
-	if (_modes._modes & E_INVITE_ONLY)
+	if (isInviteOnly())
 		flags.push_back('i');
-	if (_modes._modes & E_TOPIC_RESTRICT)
+	if (isTopicRestricted())
 		flags.push_back('t');
-	if (_modes._modes & E_CHANNEL_KEY)
+	if (hasKey())
 	{
 		flags.push_back('k');
 		params << _modes._key;
 	}
-	if (_modes._modes & E_USER_LIMIT)
+	if (hasUserLimit())
 	{
 		flags.push_back('l');
 		if (!params.str().empty())

@@ -228,16 +228,16 @@ void ReplyHandler::handle(irc::ServerNotifyCodes code, Client *client, std::stri
     {
         case ERR_PASSWDMISMATCH:
             msg << ":Password incorrect\r\n";
-            throw ClientException(msg.str());
+            break;
         case ERR_ALREADYREGISTERED:
             msg << ":already registered\r\n";
-            throw ClientException(msg.str());
+            break;
         case ERR_NOTREGISTERED:
             msg << ":You have not registered\r\n";
-            throw ClientException(msg.str());
+            break;
         case ERR_UNKNOWN_COMMAND:
             msg << extra << " :Unknown command";
-            break ;
+            break;
         case ERR_NONICKNAMEGIVEN:
             msg << " :No nickname given";
             break;
