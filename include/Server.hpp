@@ -19,19 +19,10 @@ extern volatile sig_atomic_t g_serverRunning; // ! maybe move to Server class
 
 class Server {
 private:
-	struct CompareByFd
-	{   
-		int _fd;
-		CompareByFd(int fd) : _fd(fd) {}
-		bool operator()(pollfd const& o) { return (o.fd == _fd); }
-	};
-
-	int           				            	_serverSocketfd;
-	ServerState									_state;
-	FileSendHandler								_fileSendHandler;
-	ReplyHandler								_replyHandler;
-	CommandHandler 								_commandHandler;
-	std::vector<struct pollfd>              	_pollfds;
+	ServerState			_state;
+	FileSendHandler		_fileSendHandler;
+	ReplyHandler		_replyHandler;
+	CommandHandler 		_commandHandler;
 
 	int parseArgs(int ac, char *av[]);
 
@@ -40,14 +31,13 @@ private:
 	bool receiveClientData(Client *client);
 	bool messageClient(Client *client);
 	void disconnectClient(Client *client);
-	void handlePendingTransfers();
-	void handlePolls();
+	bool handleTransferFd(int fd, int ev);
+	void handlePolls(std::vector<struct pollfd> &pollfds);
 	void finishServer();
 
 	Server(const Server &);
 public:
 	Server(int ac, char *av[]);
-	~Server();
 	
 	void startServer();
 

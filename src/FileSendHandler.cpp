@@ -114,10 +114,6 @@ void FileSendHandler::accept(Client *, TransferSession *ts)
 {
     ts->state = ts->ACCEPTED;
 
-    if (!openTransferSocket(ts))
-        std::cout << "ERROR";
-
-    ts->ifs.open(ts->file.c_str(), std::ios_base::binary);
     ts->state = ts->TRANSFERRING;
 }
 
@@ -126,8 +122,11 @@ void FileSendHandler::reject(Client *, TransferSession *ts)
     ts->state = ts->REJECTED;
 }
 
-void FileSendHandler::sendInChunks(TransferSession *ts)
+void FileSendHandler::sendChunk(TransferSession *ts)
 {
+    if (ts->state != TransferSession::TRANSFERRING)
+        return ;
+
     char buf[4096];
 
     ts->ifs.read(buf, sizeof(buf));
@@ -139,12 +138,19 @@ void FileSendHandler::sendInChunks(TransferSession *ts)
         return;
     }
 
-    ssize_t sent = ::send(ts->socketFd, buf, n, 0);
+    std::streamsize off = 0;
 
-    if (sent < 0)
+    while (off < n)
     {
-        ts->state = TransferSession::FAILED;
-        return;
+        ssize_t sent = ::send(ts->socketFd, buf + off, n - off, 0);
+
+        if (sent <= 0)
+        {
+            ts->state = TransferSession::FAILED;
+            return;
+        }
+
+        off += sent;
     }
 }
 

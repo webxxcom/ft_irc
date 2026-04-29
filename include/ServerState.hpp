@@ -3,6 +3,8 @@
 #include <vector>
 #include <map>
 #include <string>
+#include <sys/poll.h>
+#include <iostream>
 
 class TransferSession;
 class Client;
@@ -14,11 +16,17 @@ public:
 	ServerState();
 	~ServerState();
 
+	void pollfdAdd(struct pollfd fd);
+	void pollfdRemove(int fd);
+	struct pollfd& pollfdFindByFd(int fd);
+
 	Channel *createChannel(Client *cl, std::string const& name);
 	Channel *channelFindByName(std::string const& name) const;
 	void deleteChannel(Channel *ch);
 
 	void addTransferSession(TransferSession *ts);
+	void removeTransferSession(TransferSession *ts);
+	void transferSessionReplaceKey(int oldfd, int newfd, pollfd newPollfd);
 
 	Client*	clientFindByFd(int fd) const;
 	Client*	clientFindByNickname(std::string const& name) const;
@@ -26,17 +34,31 @@ public:
 	void addClient(Client *cl);
 	void removeClient(Client *cl);
 
-	int					getPort() const;
-	std::string const&	getPassword() const;
+	int							getPort() const;
+	std::string const&			getPassword() const;
+	int							getServerSockerFd() const;
+	std::vector<struct pollfd>& getPollFds();
 
-	void 				setPort(int port);
-	void				setPassword(std::string const& password);
+	void 						setPort(int port);
+	void						setPassword(std::string const& password);
+	void						setServerSockerFd(int fd);
 
 	TransferSession *transferSessionFindByToken(std::string const& token) const;
-	std::map<std::string, TransferSession *> getPendingTransfers() const;
+	TransferSession *transferSessionFindByFd(int fd) const;
+	bool			isTransferFd(int fd) const;
 
 private:
+	struct CompareByFd
+	{   
+		int _fd;
+		CompareByFd(int fd) : _fd(fd) {}
+		bool operator()(pollfd const& o) { return (o.fd == _fd); }
+	};
+	
+	
 	// State
+	std::vector<struct pollfd>              	_pollfds;
+	int           				            	_serverSocketfd;
 	std::string     			            	_password;
 	int											_port;
 
@@ -50,7 +72,7 @@ private:
 	std::map<std::string, Client *>				_clientsByName;
 
 	// TransferSession
-	std::map<std::string, TransferSession *>	_pendingTransfers;
+	std::vector<TransferSession *>				_transferSession; // the pointers owner
 
 	// TEST
 	friend class Tester;

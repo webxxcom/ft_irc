@@ -1,6 +1,6 @@
 // tiny_irc_wrapper.cpp
 // C++98 minimal IRC terminal wrapper (Linux/macOS)
-// Build: g++ -std=c++98 wrapper.cpp -o ircwrap
+// Build: g++ -std=c++98 wrapper.cpp -o ircwrap -g
 
 #include <iostream>
 #include <string>
@@ -38,18 +38,27 @@ static void receiveFileChunk()
         return;
 
     char buf[4096];
-
-    int n = ::recv(g_rx.fd, buf, sizeof(buf), 0);
+    std::cout << "\n[FILE] trying to recv file\n";
+    int n = recv(g_rx.fd, buf, sizeof(buf), 0);
+    std::cout << "\n[FILE] success to recv file\n";
 
     if (n > 0)
     {
-        g_rx.ofs.write(buf, n);
-        g_rx.received += n;
+        long remain = g_rx.expected - g_rx.received;
+        if (n > remain)
+            n = remain;
 
-        std::cout << "[FILE] "
-                  << g_rx.received << "/"
-                  << g_rx.expected << " bytes\r";
-        std::cout.flush();
+        g_rx.ofs.write(buf, n);
+
+        if (!g_rx.ofs)
+        {
+            std::cout << "\n[FILE] write failed\n";
+            close(g_rx.fd);
+            g_rx.fd = -1;
+            return;
+        }
+
+        g_rx.received += n;
 
         if (g_rx.received >= g_rx.expected)
         {
@@ -57,16 +66,22 @@ static void receiveFileChunk()
                       << g_rx.filename << "\n";
 
             g_rx.ofs.close();
-            ::close(g_rx.fd);
+            close(g_rx.fd);
             g_rx.fd = -1;
         }
     }
+    else if (n == 0)
+    {
+        std::cout << "\n[FILE] sender closed connection\n";
+        g_rx.ofs.close();
+        close(g_rx.fd);
+        g_rx.fd = -1;
+    }
     else
     {
-        std::cout << "\n[FILE] transfer interrupted\n";
-
+        std::cout << "\n[FILE] recv error\n";
         g_rx.ofs.close();
-        ::close(g_rx.fd);
+        close(g_rx.fd);
         g_rx.fd = -1;
     }
 }
