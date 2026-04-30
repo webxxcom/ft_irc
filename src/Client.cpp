@@ -7,7 +7,13 @@
 #include "Channel.hpp"
 #include <algorithm>
 
-ClientState::ClientState() : pass_ok(false), has_nick(false), has_user(false) { }
+ClientState::ClientState()
+	: pass_ok(false)
+	, has_nick(false)
+	, has_user(false)
+	, cap_negotiating(false)
+	, was_welcomed(false)
+{ }
 
 Client::Client() { }
 Client::Client(int fd) : _fd(fd)
@@ -53,9 +59,10 @@ bool Client::isRegistered() const
 	return _state.has_nick && _state.has_user && _state.pass_ok && !_state.cap_negotiating;
 }
 
-bool Client::wasWelcomed() 			const { return _state.was_welcomed; }
-bool Client::hasNickname() 			const { return _state.has_nick; }
-bool Client::setIsCapNegotiating() 	const { return _state.cap_negotiating; }
+bool Client::wasWelcomed() 			const	{ return _state.was_welcomed; }
+bool Client::hasNickname() 			const	{ return _state.has_nick; }
+bool Client::isCapNegotiating() 	const	{ return _state.cap_negotiating; }
+bool Client::hasPassword()			const	{ return _state.pass_ok; }
 bool Client::isInvitedTo(Channel *ch) const
 {
 	return std::find(_invitedTo.begin(), _invitedTo.end(), ch) != _invitedTo.end();

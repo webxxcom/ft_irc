@@ -68,7 +68,13 @@ void CommandHandler::handlePass(Client *client, std::stringstream &command)
 {
 	std::string token;
 
+	if (client->hasPassword())
+		return _replyHandler.alreadyRegistered(client);
+		
 	command >> token;
+	if (token.empty())
+		return _replyHandler.needMoreParams(client, "PASS");
+		
 	if (token != _registry.getPassword())
 		_replyHandler.passwdMismatch(client);
 	else
@@ -78,23 +84,35 @@ void CommandHandler::handlePass(Client *client, std::stringstream &command)
 void CommandHandler::handleUser(Client *client, std::stringstream& command)
 {
 	std::string token;
-	
-	// Username
-	command >> token;
-	client->setUsername(token);
 
-	// Mode, Asterix
-	command >> token;
-	command >> token;
+	if (client->isRegistered())
+		return _replyHandler.alreadyRegistered(client);
 
-	// Real name
-	std::getline(command, token);
-	client->setRealname(token);
+    if (!(command >> token))
+        return _replyHandler.needMoreParams(client, "USER");
+    client->setUsername(token);
+
+    if (!(command >> token)) return _replyHandler.needMoreParams(client, "USER");
+    if (!(command >> token)) return _replyHandler.needMoreParams(client, "USER");
+
+    std::getline(command, token);
+    if (token.empty())
+        return _replyHandler.needMoreParams(client, "USER");
+
+    if (!token.empty() && token[0] == ' ')
+        token.erase(0, 1);
+    if (!token.empty() && token[0] == ':')
+        token.erase(0, 1);
+
+    if (token.empty())
+        return _replyHandler.needMoreParams(client, "USER");
+
+    client->setRealname(token);
 }
 
 bool isValidNick(const std::string& nick)
 {
-    if (nick.empty() || nick.length() > 9)
+    if (nick.empty() || nick.length() > 15)
         return false;
 
     char first = nick[0];
@@ -152,6 +170,20 @@ void CommandHandler::handleCap(Client *client, std::stringstream& command)
 		_replyHandler.unknownCommand(client, word);
 }
 
+static bool isValidChannelMask(std::string const& mask)
+{
+	return mask[0] == '#' && mask.size() > 2;
+}
+
+static std::string lowercaseStr(std::string const& str)
+{
+	std::string cpy;
+
+	for(size_t i = 0; i < str.size(); ++i)
+		cpy.push_back((char)std::tolower(str[i]));
+	return cpy;
+}
+
 // JOIN <channels> [<keys>]
 void CommandHandler::handleJoin(Client *client, std::stringstream &command)
 {
@@ -171,9 +203,11 @@ void CommandHandler::handleJoin(Client *client, std::stringstream &command)
 	while (!channelList.eof())
 	{
 		std::getline(channelList, channelName, ',');
-		if (channelName[0] != '#' || channelName.size() < 2)
+		channelName = lowercaseStr(channelName);
+		
+		if (!isValidChannelMask(channelName))
 		{
-			_replyHandler.badChannelMask(client, channelName);
+			_replyHandler.noSuchChannel(client, channelName);
 			continue;
 		}
 
@@ -214,39 +248,50 @@ void CommandHandler::handleJoin(Client *client, std::stringstream &command)
 //PRIVMSG <target> :<message>
 void CommandHandler::handlePrivmsg(Client *client, std::stringstream &command)
 {
-	if (!client->isRegistered())
-		return _replyHandler.notRegistered(client);
+    if (!client->isRegistered())
+        return _replyHandler.notRegistered(client);
 
-	std::string target, message;
+    std::string target, message;
 
-	command >> target;
-	std::getline(command, message);
+    if (!(command >> target))
+        return _replyHandler.noRecipient(client, "PRIVMSG");
 
-	if (message.empty())
-		return _replyHandler.noTextToSend(client);
+    std::getline(command, message);
 
-	if (target.empty())
-		return _replyHandler.noRecipient(client, "PRIVMSG");
+    if (message.empty())
+        return _replyHandler.noTextToSend(client);
 
-	if (message[0] == ' ')
-		message.erase(0, 1);
+    if (!message.empty() && message[0] == ' ')
+        message.erase(0, 1);
 
-	if (target[0] == '#')
-	{
-		Channel *ch = _registry.channelFindByName(target);
-		if (!ch)
-			return _replyHandler.noSuchChannel(client, target);
-		if (!ch->hasMember(client))
-			return _replyHandler.notOnChannel(client, ch->getName());
-		ch->broadcast(client->getFullUserPrefix() + " PRIVMSG " + target + " " + message + "\r\n");
-	}
-	else
-	{
-		Client *cl = _registry.clientFindByNickname(target);
-		if (!cl)
-			return _replyHandler.noSuchNick(client, target);
-		client->receiveMsg(client->getFullUserPrefix() + " PRIVMSG " + target + " " + message + "\r\n");
-	}
+    if (message.empty() || message[0] != ':')
+        return _replyHandler.noTextToSend(client);
+    message.erase(0, 1);
+
+    if (message.empty())
+        return _replyHandler.noTextToSend(client);
+
+    std::string full = client->getFullUserPrefix()
+        + " PRIVMSG " + target + " :" + message + "\r\n";
+
+    if (target[0] == '#')
+    {
+        Channel *ch = _registry.channelFindByName(target);
+        if (!ch)
+            return _replyHandler.noSuchChannel(client, target);
+        if (!ch->hasMember(client))
+            return _replyHandler.notOnChannel(client, target);
+
+        ch->broadcast(full);
+    }
+    else
+    {
+        Client *cl = _registry.clientFindByNickname(target);
+        if (!cl)
+            return _replyHandler.noSuchNick(client, target);
+
+        cl->receiveMsg(full);
+    }
 }
 
 // KICK <channel> <client> :[<message>]
@@ -518,7 +563,7 @@ void CommandHandler::handlePart(Client *client, std::stringstream &command)
 		ch->broadcast(msg);
 		ch->removeMember(client);
 		if (ch->isEmpty())
-			_registry.deleteChannel(ch);
+			_registry.removeChannel(ch);
 	}
 }
 

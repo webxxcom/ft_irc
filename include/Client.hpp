@@ -30,7 +30,9 @@ private:
 	std::queue<std::string>         _outMsg;
 	std::queue<std::string>         _inMsg;
 	std::vector<Channel *>          _invitedTo;
+	
 	Client();
+
 public:
 	struct NickEquals {
 		explicit NickEquals(std::string const& target) : _target(target) { };
@@ -48,19 +50,20 @@ public:
 	bool operator==(Client const& other) const;
 
 	// Getters
-	std::queue<std::string> const&  getOutMssgs()  const;
-	std::queue<std::string> const&  getInMssgs(void)       const;
-	std::string const&              getRecvBuffer()        const;
-	const std::string&              getNickname()          const;
-	std::string                     getIrcNickname()       const;
-	std::string                     getFullUserPrefix()    const;
-	const std::string&              getUsername()          const;
-	const std::string&              getRealname()          const;
-	int                             getFd()                const;
-	bool                            isRegistered()         const;
-	bool                            wasWelcomed()          const;
-	bool                            hasNickname()          const;
-	bool                            setIsCapNegotiating()     const;
+	std::queue<std::string> const&	getOutMssgs()			const;
+	std::queue<std::string> const&	getInMssgs(void)		const;
+	std::string const&				getRecvBuffer()			const;
+	const std::string&              getNickname()			const;
+	std::string                     getIrcNickname()		const;
+	std::string                     getFullUserPrefix()		const;
+	const std::string&              getUsername()			const;
+	const std::string&              getRealname()			const;
+	int                             getFd()					const;
+	bool                            isRegistered()			const;
+	bool                            wasWelcomed()			const;
+	bool                            hasNickname()			const;
+	bool                            isCapNegotiating()		const;
+	bool                            hasPassword()			const;
 
 	void clearInMssgs();
 	void clearOutMssgs(void);

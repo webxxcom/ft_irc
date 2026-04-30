@@ -227,13 +227,13 @@ void ReplyHandler::handle(irc::ServerNotifyCodes code, Client *client, std::stri
     switch (code)
     {
         case ERR_PASSWDMISMATCH:
-            msg << ":Password incorrect\r\n";
+            msg << " :Password incorrect\r\n";
             break;
         case ERR_ALREADYREGISTERED:
-            msg << ":already registered\r\n";
+            msg << " :already registered\r\n";
             break;
         case ERR_NOTREGISTERED:
-            msg << ":You have not registered\r\n";
+            msg << " :You have not registered\r\n";
             break;
         case ERR_UNKNOWN_COMMAND:
             msg << extra << " :Unknown command";

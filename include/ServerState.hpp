@@ -5,6 +5,7 @@
 #include <string>
 #include <sys/poll.h>
 #include <iostream>
+#include <set>
 
 class TransferSession;
 class Client;
@@ -16,28 +17,30 @@ public:
 	ServerState();
 	~ServerState();
 
-	void pollfdAdd(struct pollfd fd);
-	void pollfdRemove(int fd);
-	struct pollfd& pollfdFindByFd(int fd);
+	int				poll();
+	void			pollfdAdd(struct pollfd fd);
+	void 			pollfdRemove(int fd);
+	bool			pollfdFindByFd(int fd, pollfd &out);
 
 	Channel *createChannel(Client *cl, std::string const& name);
 	Channel *channelFindByName(std::string const& name) const;
-	void deleteChannel(Channel *ch);
+	void removeChannel(Channel *ch);
 
 	void addTransferSession(TransferSession *ts);
 	void removeTransferSession(TransferSession *ts);
-	void transferSessionReplaceKey(int oldfd, int newfd, pollfd newPollfd);
 
+	std::set<Client *>	getUsersClientKnows(Client *cl) const;
 	Client*	clientFindByFd(int fd) const;
 	Client*	clientFindByNickname(std::string const& name) const;
-	void clientChangeName(Client *cl, std::string const& newName);
+	void clientChangeName(Client *cl, std::string const& newName) const;
 	void addClient(Client *cl);
 	void removeClient(Client *cl);
+	void removeFromAllChannels(Client *cl);
 
 	int							getPort() const;
 	std::string const&			getPassword() const;
 	int							getServerSockerFd() const;
-	std::vector<struct pollfd>& getPollFds();
+	std::vector<pollfd> const&	getPollFds();
 
 	void 						setPort(int port);
 	void						setPassword(std::string const& password);
@@ -55,24 +58,16 @@ private:
 		bool operator()(pollfd const& o) const { return (o.fd == _fd); }
 	};
 	
-	
 	// State
 	std::vector<struct pollfd>              	_pollfds;
 	int           				            	_serverSocketfd;
 	std::string     			            	_password;
 	int											_port;
 
-	// Channels storage
-	std::vector<Channel *>						_channels; // the pointers owner
-	std::map<std::string, Channel *>			_channelsByName;
-
-	// Clients storage
-	std::vector<Client *>						_clients; // the pointers owner
-	std::map<int, Client *>						_clientsByFd;
-	std::map<std::string, Client *>				_clientsByName;
-
-	// TransferSession
-	std::vector<TransferSession *>				_transferSession; // the pointers owner
+	// Registry
+	std::vector<Channel *>						_channels;
+	std::vector<Client *>						_clients;
+	std::vector<TransferSession *>				_transferSession;
 
 	// TEST
 	friend class Tester;

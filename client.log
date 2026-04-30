@@ -1,8 +1,572 @@
+>> PASS wrongpassword
+>> NICK passtest
+>> USER passtest 0 * :passtest
+<< :server 464 * :Password incorrect
+>> PASS
+<< :server 461 * PASS :Not enough parameters
 >> PASS a
->> NICK test
->> USER test 0 * :test
->> JOIN
-<< :server 461 test JOIN :Not enough parameters
-:server 001 test :Welcome to the IRC server
+>> NICK testuser
+>> USER testuser 0 * :testuser
+<< :server 001 testuser :Welcome to the IRC server
+>> PASS a
+<< :server 462 testuser :already registered
 >> PASS a
 >> NICK
+<< :server 431 * :No nickname given
+>> PASS a
+>> NICK badnick!
+<< :server 432 * badnick! :Erroneous nickname
+>> PASS a
+>> NICK original
+>> USER original 0 * :original
+<< :server 001 original :Welcome to the IRC server
+>> PASS a
+>> NICK observer
+>> USER observer 0 * :observer
+<< :server 001 observer :Welcome to the IRC server
+>> JOIN #nicktest
+>> JOIN #nicktest
+<< :original!original@server JOIN #nicktest
+:server 353 original = #nicktest :@original
+:server 366 original #nicktest :End of /NAMES list
+:observer!observer@server JOIN #nicktest
+<< :observer!observer@server JOIN #nicktest
+:server 353 observer = #nicktest :@original observer
+:server 366 observer #nicktest :End of /NAMES list
+>> NICK renamed
+<< :original NICK :renamed
+<< :original NICK :renamed
+>> PASS a
+>> NICK dupenick
+>> USER dupenick 0 * :dupenick
+<< :server 001 dupenick :Welcome to the IRC server
+>> PASS a
+>> NICK dupenick
+<< :server 433 * dupenick :Nickname is already in use
+>> PASS a
+>> NICK usertest
+>> USER usertest
+<< :server 461 usertest USER :Not enough parameters
+:server 001 usertest :Welcome to the IRC server
+>> PASS a
+>> NICK testuser
+>> USER testuser 0 * :testuser
+<< :server 001 testuser :Welcome to the IRC server
+>> USER newuser 0 * :New User
+<< :server 462 testuser :already registered
+>> PASS a
+>> NICK welcometest
+>> USER welcometest 0 * :Welcome Test
+<< :server 001 welcometest :Welcome to the IRC server
+>> PASS a
+>> NICK testuser
+>> USER testuser 0 * :testuser
+<< :server 001 testuser :Welcome to the IRC server
+>> JOIN
+<< :server 461 testuser JOIN :Not enough parameters
+>> PASS a
+>> NICK testuser
+>> USER testuser 0 * :testuser
+<< :server 001 testuser :Welcome to the IRC server
+>> JOIN #general
+<< :testuser!testuser@server JOIN #general
+:server 353 testuser = #general :@testuser
+:server 366 testuser #general :End of /NAMES list
+>> PASS a
+>> NICK testuser
+>> USER testuser 0 * :testuser
+<< :server 001 testuser :Welcome to the IRC server
+>> JOIN nochannel
+<< :server 403 testuser nochannel :No such channel
+>> PASS a
+>> NICK testuser
+>> USER testuser 0 * :testuser
+<< :server 001 testuser :Welcome to the IRC server
+>> JOIN #multi1,#multi2
+<< :testuser!testuser@server JOIN #multi1
+:server 353 testuser = #multi1 :@testuser
+:server 366 testuser #multi1 :End of /NAMES list
+:testuser!testuser@server JOIN #multi2
+:server 353 testuser = #multi2 :@testuser
+:server 366 testuser #multi2 :End of /NAMES list
+>> JOIN #early
+<< :server 451 * :You have not registered
+>> PASS a
+>> NICK testuser
+>> USER testuser 0 * :testuser
+<< :server 001 testuser :Welcome to the IRC server
+>> PART
+<< :server 461 testuser PART :Not enough parameters
+>> PASS a
+>> NICK cl1
+>> USER cl1 0 * :cl1
+<< :server 001 cl1 :Welcome to the IRC server
+>> PASS a
+>> NICK cl2
+>> USER cl2 0 * :cl2
+<< :server 001 cl2 :Welcome to the IRC server
+>> JOIN #notjoined
+<< :cl1!cl1@server JOIN #notjoined
+:server 353 cl1 = #notjoined :@cl1
+:server 366 cl1 #notjoined :End of /NAMES list
+>> PART #notjoined
+<< :server 442 cl2 #notjoined :You're not on that channel
+>> PASS a
+>> NICK testuser
+>> USER testuser 0 * :testuser
+<< :server 001 testuser :Welcome to the IRC server
+>> JOIN #parttest
+>> PART #parttest
+<< :testuser!testuser@server JOIN #parttest
+:server 353 testuser = #parttest :@testuser
+:server 366 testuser #parttest :End of /NAMES list
+:testuser!testuser@server PART #parttest
+>> PASS a
+>> NICK testuser
+>> USER testuser 0 * :testuser
+<< :server 001 testuser :Welcome to the IRC server
+>> JOIN #partmsg
+>> PART #partmsg :Goodbye!
+<< :testuser!testuser@server JOIN #partmsg
+:server 353 testuser = #partmsg :@testuser
+:server 366 testuser #partmsg :End of /NAMES list
+:testuser!testuser@server PART #partmsg :Goodbye!
+>> PASS a
+>> NICK parter
+>> USER parter 0 * :parter
+<< :server 001 parter :Welcome to the IRC server
+>> PASS a
+>> NICK watcher
+>> USER watcher 0 * :watcher
+<< :server 001 watcher :Welcome to the IRC server
+>> JOIN #broadcast
+>> JOIN #broadcast
+<< :parter!parter@server JOIN #broadcast
+:server 353 parter = #broadcast :@parter
+:server 366 parter #broadcast :End of /NAMES list
+:watcher!watcher@server JOIN #broadcast
+<< :watcher!watcher@server JOIN #broadcast
+:server 353 watcher = #broadcast :@parter watcher
+:server 366 watcher #broadcast :End of /NAMES list
+>> PART #broadcast :leaving
+<< :parter!parter@server PART #broadcast :leaving
+>> PASS a
+>> NICK testuser
+>> USER testuser 0 * :testuser
+<< :server 001 testuser :Welcome to the IRC server
+>> PRIVMSG
+<< :server 411 testuser  :No recipient given PRIVMSG
+>> PASS a
+>> NICK testuser
+>> USER testuser 0 * :testuser
+<< :server 001 testuser :Welcome to the IRC server
+>> JOIN #somewhere
+>> PRIVMSG #somewhere
+<< :testuser!testuser@server JOIN #somewhere
+:server 353 testuser = #somewhere :@testuser
+:server 366 testuser #somewhere :End of /NAMES list
+:server 412 testuser :No text to send
+>> PASS a
+>> NICK sender
+>> USER sender 0 * :sender
+<< :server 001 sender :Welcome to the IRC server
+>> PASS a
+>> NICK receiver
+>> USER receiver 0 * :receiver
+<< :server 001 receiver :Welcome to the IRC server
+>> JOIN #chat
+>> JOIN #chat
+<< :sender!sender@server JOIN #chat
+:server 353 sender = #chat :@sender
+:server 366 sender #chat :End of /NAMES list
+:receiver!receiver@server JOIN #chat
+<< :receiver!receiver@server JOIN #chat
+:server 353 receiver = #chat :@sender receiver
+:server 366 receiver #chat :End of /NAMES list
+>> PRIVMSG #chat :Hello everyone!
+<< sender!sender@server PRIVMSG #chat :Hello everyone!
+>> PASS a
+>> NICK selfecho
+>> USER selfecho 0 * :selfecho
+<< :server 001 selfecho :Welcome to the IRC server
+>> PASS a
+>> NICK peer
+>> USER peer 0 * :peer
+<< :server 001 peer :Welcome to the IRC server
+>> JOIN #echo
+>> JOIN #echo
+<< :selfecho!selfecho@server JOIN #echo
+:server 353 selfecho = #echo :@selfecho
+:server 366 selfecho #echo :End of /NAMES list
+:peer!peer@server JOIN #echo
+<< :peer!peer@server JOIN #echo
+:server 353 peer = #echo :@selfecho peer
+:server 366 peer #echo :End of /NAMES list
+>> PRIVMSG #echo :echo please
+<< selfecho!selfecho@server PRIVMSG #echo :echo please
+<< selfecho!selfecho@server PRIVMSG #echo :echo please
+>> PASS a
+>> NICK dmsender
+>> USER dmsender 0 * :dmsender
+<< :server 001 dmsender :Welcome to the IRC server
+>> PASS a
+>> NICK dmreceiver
+>> USER dmreceiver 0 * :dmreceiver
+<< :server 001 dmreceiver :Welcome to the IRC server
+>> PRIVMSG dmreceiver :private hello
+<< dmsender!dmsender@server PRIVMSG dmreceiver :private hello
+>> PASS a
+>> NICK testuser
+>> USER testuser 0 * :testuser
+<< :server 001 testuser :Welcome to the IRC server
+>> PRIVMSG ghostuser :hello?
+<< :server 401 testuser ghostuser :No such nick/channel
+>> PASS a
+>> NICK u2
+>> USER u2 0 * :u2
+<< :server 001 u2 :Welcome to the IRC server
+>> PRIVMSG #somewhere
+<< :server 412 u2 :No text to send
+>> PRIVMSG #test :too early
+<< :server 451 * :You have not registered
+>> PASS a
+>> NICK halfregistered
+>> PRIVMSG #test :not yet
+<< :server 451 halfregistered :You have not registered
+>> PASS a
+>> NICK sender1
+>> USER sender1 0 * :sender1
+<< :server 001 sender1 :Welcome to the IRC server
+>> PRIVMSG ghostuser :hello?
+<< :server 401 sender1 ghostuser :No such nick/channel
+>> PASS a
+>> NICK chansend
+>> USER chansend 0 * :chansend
+<< :server 001 chansend :Welcome to the IRC server
+>> PASS a
+>> NICK chanrecv
+>> USER chanrecv 0 * :chanrecv
+<< :server 001 chanrecv :Welcome to the IRC server
+>> JOIN #delivery
+>> JOIN #delivery
+<< :chansend!chansend@server JOIN #delivery
+:server 353 chansend = #delivery :@chansend
+:server 366 chansend #delivery :End of /NAMES list
+:chanrecv!chanrecv@server JOIN #delivery
+<< :chanrecv!chanrecv@server JOIN #delivery
+:server 353 chanrecv = #delivery :@chansend chanrecv
+:server 366 chanrecv #delivery :End of /NAMES list
+>> PRIVMSG #delivery :ping
+<< chansend!chansend@server PRIVMSG #delivery :ping
+>> PASS a
+>> NICK prefixsend
+>> USER prefixsend 0 * :prefixsend
+<< :server 001 prefixsend :Welcome to the IRC server
+>> PASS a
+>> NICK prefixrecv
+>> USER prefixrecv 0 * :prefixrecv
+<< :server 001 prefixrecv :Welcome to the IRC server
+>> JOIN #prefix
+>> JOIN #prefix
+<< :prefixsend!prefixsend@server JOIN #prefix
+:server 353 prefixsend = #prefix :@prefixsend
+:server 366 prefixsend #prefix :End of /NAMES list
+:prefixrecv!prefixrecv@server JOIN #prefix
+<< :prefixrecv!prefixrecv@server JOIN #prefix
+:server 353 prefixrecv = #prefix :@prefixsend prefixrecv
+:server 366 prefixrecv #prefix :End of /NAMES list
+>> PRIVMSG #prefix :check prefix
+<< prefixsend!prefixsend@server PRIVMSG #prefix :check prefix
+>> PASS a
+>> NICK selfecho
+>> USER selfecho 0 * :selfecho
+<< :server 001 selfecho :Welcome to the IRC server
+>> PASS a
+>> NICK peer
+>> USER peer 0 * :peer
+<< :server 001 peer :Welcome to the IRC server
+>> JOIN #echo
+>> JOIN #echo
+<< :selfecho!selfecho@server JOIN #echo
+:server 353 selfecho = #echo :@selfecho
+:server 366 selfecho #echo :End of /NAMES list
+:peer!peer@server JOIN #echo
+<< :peer!peer@server JOIN #echo
+:server 353 peer = #echo :@selfecho peer
+:server 366 peer #echo :End of /NAMES list
+>> PRIVMSG #echo :echo please
+<< selfecho!selfecho@server PRIVMSG #echo :echo please
+<< selfecho!selfecho@server PRIVMSG #echo :echo please
+>> PASS a
+>> NICK mc1
+>> USER mc1 0 * :mc1
+<< :server 001 mc1 :Welcome to the IRC server
+>> PASS a
+>> NICK mc2
+>> USER mc2 0 * :mc2
+<< :server 001 mc2 :Welcome to the IRC server
+>> PASS a
+>> NICK mc3
+>> USER mc3 0 * :mc3
+<< :server 001 mc3 :Welcome to the IRC server
+>> JOIN #multi
+>> JOIN #multi
+>> JOIN #multi
+<< :mc1!mc1@server JOIN #multi
+:server 353 mc1 = #multi :@mc1
+:server 366 mc1 #multi :End of /NAMES list
+:mc2!mc2@server JOIN #multi
+:mc3!mc3@server JOIN #multi
+<< :mc2!mc2@server JOIN #multi
+:server 353 mc2 = #multi :@mc1 mc2
+:server 366 mc2 #multi :End of /NAMES list
+:mc3!mc3@server JOIN #multi
+<< :mc3!mc3@server JOIN #multi
+:server 353 mc3 = #multi :@mc1 mc2 mc3
+:server 366 mc3 #multi :End of /NAMES list
+>> PRIVMSG #multi :broadcast
+<< mc1!mc1@server PRIVMSG #multi :broadcast
+<< mc1!mc1@server PRIVMSG #multi :broadcast
+>> PASS a
+>> NICK stillhere
+>> USER stillhere 0 * :stillhere
+<< :server 001 stillhere :Welcome to the IRC server
+>> PASS a
+>> NICK hasparted
+>> USER hasparted 0 * :hasparted
+<< :server 001 hasparted :Welcome to the IRC server
+>> JOIN #leavechan
+>> JOIN #leavechan
+<< :stillhere!stillhere@server JOIN #leavechan
+:server 353 stillhere = #leavechan :@stillhere
+:server 366 stillhere #leavechan :End of /NAMES list
+:hasparted!hasparted@server JOIN #leavechan
+<< :hasparted!hasparted@server JOIN #leavechan
+:server 353 hasparted = #leavechan :@stillhere hasparted
+:server 366 hasparted #leavechan :End of /NAMES list
+>> PART #leavechan
+<< :hasparted!hasparted@server PART #leavechan
+>> PRIVMSG #leavechan :after part
+>> PASS a
+>> NICK dmsend
+>> USER dmsend 0 * :dmsend
+<< :server 001 dmsend :Welcome to the IRC server
+>> PASS a
+>> NICK dmrecv
+>> USER dmrecv 0 * :dmrecv
+<< :server 001 dmrecv :Welcome to the IRC server
+>> PRIVMSG dmrecv :hey there
+<< dmsend!dmsend@server PRIVMSG dmrecv :hey there
+>> PASS a
+>> NICK dmprefixsend
+>> USER dmprefixsend 0 * :dmprefixsend
+<< :server 001 dmprefixsend :Welcome to the IRC server
+>> PASS a
+>> NICK dmprefixrecv
+>> USER dmprefixrecv 0 * :dmprefixrecv
+<< :server 001 dmprefixrecv :Welcome to the IRC server
+>> PRIVMSG dmprefixrecv :prefix check
+<< dmprefixsend!dmprefixsend@server PRIVMSG dmprefixrecv :prefix check
+>> PASS a
+>> NICK dmnoecho
+>> USER dmnoecho 0 * :dmnoecho
+<< :server 001 dmnoecho :Welcome to the IRC server
+>> PASS a
+>> NICK dmnoechopeer
+>> USER dmnoechopeer 0 * :dmnoechopeer
+<< :server 001 dmnoechopeer :Welcome to the IRC server
+>> PRIVMSG dmnoechopeer :whisper
+<< dmnoecho!dmnoecho@server PRIVMSG dmnoechopeer :whisper
+>> PASS a
+>> NICK selftalk
+>> USER selftalk 0 * :selftalk
+<< :server 001 selftalk :Welcome to the IRC server
+>> PRIVMSG selftalk :talking to myself
+<< selftalk!selftalk@server PRIVMSG selftalk :talking to myself
+>> PASS a
+>> NICK CaseSend
+>> USER CaseSend 0 * :CaseSend
+<< :server 001 CaseSend :Welcome to the IRC server
+>> PASS a
+>> NICK caserecv
+>> USER caserecv 0 * :caserecv
+<< :server 001 caserecv :Welcome to the IRC server
+>> PRIVMSG CASERECV :case test
+<< CaseSend!CaseSend@server PRIVMSG CASERECV :case test
+>> PASS a
+>> NICK chancase1
+>> USER chancase1 0 * :chancase1
+<< :server 001 chancase1 :Welcome to the IRC server
+>> PASS a
+>> NICK chancase2
+>> USER chancase2 0 * :chancase2
+<< :server 001 chancase2 :Welcome to the IRC server
+>> JOIN #CaseChannel
+>> JOIN #casechannel
+<< :chancase1!chancase1@server JOIN #casechannel
+:server 353 chancase1 = #casechannel :@chancase1
+:server 366 chancase1 #casechannel :End of /NAMES list
+:chancase2!chancase2@server JOIN #casechannel
+<< :chancase2!chancase2@server JOIN #casechannel
+:server 353 chancase2 = #casechannel :@chancase1 chancase2
+:server 366 chancase2 #casechannel :End of /NAMES list
+>> PRIVMSG #CASECHANNEL :hello mixed case
+<< chancase1!chancase1@server PRIVMSG #CASECHANNEL :hello mixed case
+>> PASS a
+>> NICK longsend
+>> USER longsend 0 * :longsend
+<< :server 001 longsend :Welcome to the IRC server
+>> PASS a
+>> NICK longrecv
+>> USER longrecv 0 * :longrecv
+<< :server 001 longrecv :Welcome to the IRC server
+>> JOIN #longmsg
+>> JOIN #longmsg
+<< :longsend!longsend@server JOIN #longmsg
+:server 353 longsend = #longmsg :@longsend
+:server 366 longsend #longmsg :End of /NAMES list
+:longrecv!longrecv@server JOIN #longmsg
+<< :longrecv!longrecv@server JOIN #longmsg
+:server 353 longrecv = #longmsg :@longsend longrecv
+:server 366 longrecv #longmsg :End of /NAMES list
+>> PRIVMSG #longmsg :AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+<< longsend!longsend@server PRIVMSG #longmsg :AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+>> PASS a
+>> NICK spacesend
+>> USER spacesend 0 * :spacesend
+<< :server 001 spacesend :Welcome to the IRC server
+>> PASS a
+>> NICK spacerecv
+>> USER spacerecv 0 * :spacerecv
+<< :server 001 spacerecv :Welcome to the IRC server
+>> JOIN #spacemsg
+>> JOIN #spacemsg
+<< :spacesend!spacesend@server JOIN #spacemsg
+:server 353 spacesend = #spacemsg :@spacesend
+:server 366 spacesend #spacemsg :End of /NAMES list
+:spacerecv!spacerecv@server JOIN #spacemsg
+<< :spacerecv!spacerecv@server JOIN #spacemsg
+:server 353 spacerecv = #spacemsg :@spacesend spacerecv
+:server 366 spacerecv #spacemsg :End of /NAMES list
+>> PRIVMSG #spacemsg :hello world with spaces
+<< spacesend!spacesend@server PRIVMSG #spacemsg :hello world with spaces
+>> PASS a
+>> NICK specsend
+>> USER specsend 0 * :specsend
+<< :server 001 specsend :Welcome to the IRC server
+>> PASS a
+>> NICK specrecv
+>> USER specrecv 0 * :specrecv
+<< :server 001 specrecv :Welcome to the IRC server
+>> JOIN #specmsg
+>> JOIN #specmsg
+<< :specsend!specsend@server JOIN #specmsg
+:server 353 specsend = #specmsg :@specsend
+:server 366 specsend #specmsg :End of /NAMES list
+:specrecv!specrecv@server JOIN #specmsg
+<< :specrecv!specrecv@server JOIN #specmsg
+:server 353 specrecv = #specmsg :@specsend specrecv
+:server 366 specrecv #specmsg :End of /NAMES list
+>> PRIVMSG #specmsg :!@#$%^&*()-_=+[]{}|;',.<>?
+<< specsend!specsend@server PRIVMSG #specmsg :!@#$%^&*()-_=+[]{}|;',.<>?
+>> PASS a
+>> NICK colonsend
+>> USER colonsend 0 * :colonsend
+<< :server 001 colonsend :Welcome to the IRC server
+>> PASS a
+>> NICK colonrecv
+>> USER colonrecv 0 * :colonrecv
+<< :server 001 colonrecv :Welcome to the IRC server
+>> JOIN #colonmsg
+>> JOIN #colonmsg
+<< :colonsend!colonsend@server JOIN #colonmsg
+:server 353 colonsend = #colonmsg :@colonsend
+:server 366 colonsend #colonmsg :End of /NAMES list
+:colonrecv!colonrecv@server JOIN #colonmsg
+<< :colonrecv!colonrecv@server JOIN #colonmsg
+:server 353 colonrecv = #colonmsg :@colonsend colonrecv
+:server 366 colonrecv #colonmsg :End of /NAMES list
+>> PRIVMSG #colonmsg :time is 12:34:56
+<< colonsend!colonsend@server PRIVMSG #colonmsg :time is 12:34:56
+>> PASS a
+>> NICK unisend
+>> USER unisend 0 * :unisend
+<< :server 001 unisend :Welcome to the IRC server
+>> PASS a
+>> NICK unirecv
+>> USER unirecv 0 * :unirecv
+<< :server 001 unirecv :Welcome to the IRC server
+>> JOIN #unicode
+>> JOIN #unicode
+<< :unisend!unisend@server JOIN #unicode
+:server 353 unisend = #unicode :@unisend
+:server 366 unisend #unicode :End of /NAMES list
+:unirecv!unirecv@server JOIN #unicode
+<< :unirecv!unirecv@server JOIN #unicode
+:server 353 unirecv = #unicode :@unisend unirecv
+:server 366 unirecv #unicode :End of /NAMES list
+>> PRIVMSG #unicode :héllo wörld 🎉
+<< unisend!unisend@server PRIVMSG #unicode :héllo wörld 🎉
+>> PASS a
+>> NICK alivesend
+>> USER alivesend 0 * :alivesend
+<< :server 001 alivesend :Welcome to the IRC server
+>> PASS a
+>> NICK aliverecv
+>> USER aliverecv 0 * :aliverecv
+<< :server 001 aliverecv :Welcome to the IRC server
+>> PRIVMSG aliverecv :are you there?
+<< :server 401 alivesend aliverecv :No such nick/channel
+>> PASS a
+>> NICK rejsend
+>> USER rejsend 0 * :rejsend
+<< :server 001 rejsend :Welcome to the IRC server
+>> PASS a
+>> NICK rejoin
+>> USER rejoin 0 * :rejoin
+<< :server 001 rejoin :Welcome to the IRC server
+>> JOIN #rejoin
+>> JOIN #rejoin
+<< :rejsend!rejsend@server JOIN #rejoin
+:server 353 rejsend = #rejoin :@rejsend
+:server 366 rejsend #rejoin :End of /NAMES list
+:rejoin!rejoin@server JOIN #rejoin
+<< :rejoin!rejoin@server JOIN #rejoin
+:server 353 rejoin = #rejoin :@rejsend rejoin
+:server 366 rejoin #rejoin :End of /NAMES list
+>> PART #rejoin
+<< :rejoin!rejoin@server PART #rejoin
+>> JOIN #rejoin
+<< :rejoin!rejoin@server JOIN #rejoin
+:server 353 rejoin = #rejoin :@rejsend rejoin
+:server 366 rejoin #rejoin :End of /NAMES list
+>> PRIVMSG #rejoin :welcome back
+<< rejsend!rejsend@server PRIVMSG #rejoin :welcome back
+>> CAP LS
+<< :server CAP * LS :
+>> CAP LS
+<< :server CAP * LS :
+>> CAP END
+>> PASS a
+>> NICK capendtest
+>> USER capendtest 0 * :capendtest
+<< :server 001 capendtest :Welcome to the IRC server
+>> CAP LS 302
+<< :server CAP * LS :
+>> PASS a
+>> NICK testuser
+>> USER testuser 0 * :testuser
+<< :server 001 testuser :Welcome to the IRC server
+>> FAKECOMMAND arg1 arg2
+<< :server 421 testuser FAKECOMMAND :Unknown command
+>> PRIVMSG #test :too early
+<< :server 451 * :You have not registered
+>> PASS a
+>> NICK testuser
+>> USER testuser 0 * :testuser
+<< :server 001 testuser :Welcome to the IRC server
+>> 
+>> PRIVMSG #test :still alive
+>> PASS a
+>> NICK averylongnickname
+<< :server 432 * averylongnickname :Erroneous nickname

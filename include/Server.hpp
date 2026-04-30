@@ -28,11 +28,11 @@ private:
 
 	void setupServer();
 	void acceptClient();
-	bool receiveClientData(Client *client);
-	bool messageClient(Client *client);
+	void receiveClientData(Client *client);
+	void messageClient(Client *client);
 	void disconnectClient(Client *client);
-	bool handleTransferFd(int fd, int ev);
-	void handlePolls(std::vector<struct pollfd> &pollfds);
+	void handleTransferFd(int fd, int ev);
+	void handlePolls(std::vector<struct pollfd> const& pollfds);
 	void finishServer();
 
 	Server(const Server &);

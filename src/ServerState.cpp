@@ -18,6 +18,11 @@ ServerState::~ServerState()
 		delete _channels[i];
 }
 
+int ServerState::poll()
+{
+	return ::poll(&_pollfds[0], _pollfds.size(), -1);
+}
+
 void ServerState::pollfdAdd(struct pollfd fd)
 {
     this->_pollfds.push_back(fd);
@@ -35,30 +40,47 @@ void ServerState::pollfdRemove(int fd)
 	}
 }
 
-struct pollfd& ServerState::pollfdFindByFd(int fd)
+bool ServerState::pollfdFindByFd(int fd, pollfd &out)
 {
-	return *std::find_if(_pollfds.begin(), _pollfds.end(), CompareByFd(fd));
+	std::vector<pollfd>::iterator it = std::find_if(_pollfds.begin(), _pollfds.end(), CompareByFd(fd));
+	if (it != _pollfds.end())
+	{
+		out = *it;
+		return true;
+	}
+	return false;
+}
+
+static std::string lowercaseStr(std::string const& str)
+{
+	std::string cpy;
+
+	for(size_t i = 0; i < str.size(); ++i)
+		cpy.push_back((char)std::tolower(str[i]));
+	return cpy;
 }
 
 Channel *ServerState::createChannel(Client *creator, std::string const &name)
 {
-	Channel *ch = new Channel(creator, name);
+	Channel *ch = new Channel(creator, lowercaseStr(name));
 
 	_channels.push_back(ch);
-	_channelsByName.insert(std::pair<std::string, Channel *>(name, ch));
 	return ch;
 }
 
 Channel *ServerState::channelFindByName(std::string const &name) const
 {
-	std::map<std::string, Channel *>::const_iterator it = _channelsByName.find(name);
-	return it == _channelsByName.end() ? NULL : it->second;
+	for (size_t i = 0; i < _channels.size(); ++i)
+	{
+		if (lowercaseStr(_channels[i]->getName()) == lowercaseStr(name))
+			return _channels[i];
+	}
+	return NULL;
 }
 
-void ServerState::deleteChannel(Channel *ch)
+void ServerState::removeChannel(Channel *ch)
 {
-	_channelsByName.erase(ch->getName());
-	std::remove(_channels.begin(), _channels.end(), ch);
+	_channels.erase(std::find(_channels.begin(), _channels.end(), ch));
 	delete ch;
 }
 
@@ -79,30 +101,56 @@ void ServerState::removeTransferSession(TransferSession *ts)
 	// ! delete ts;
 }
 
+std::set<Client *> ServerState::getUsersClientKnows(Client *cl) const
+{
+    std::set<Client *> res;
+
+	for(size_t i = 0; i < _channels.size(); ++i)
+	{
+		if (_channels[i]->hasMember(cl))
+		{
+			std::set<Client *> const& users = _channels[i]->getMembers();
+			for(std::set<Client *>::iterator it = users.begin(); it != users.end(); ++it)
+				res.insert(*it);
+		}
+	}
+	res.insert(cl);
+	return res;
+}
+
 Client *ServerState::clientFindByFd(int fd) const
 {
-	std::map<int, Client *>::const_iterator it = _clientsByFd.find(fd);
-	return it == _clientsByFd.end() ? NULL : it->second;
+	for(size_t i = 0; i < _clients.size(); ++i)
+		if (_clients[i]->getFd() == fd)
+			return _clients[i];
+	return (NULL);
 }
 
 Client *ServerState::clientFindByNickname(std::string const &name) const
 {
-	std::map<std::string, Client *>::const_iterator it = _clientsByName.find(name);
-	return it == _clientsByName.end() ? NULL : it->second;
+	for(size_t i = 0; i < _clients.size(); ++i)
+		if (lowercaseStr(_clients[i]->getNickname()) == lowercaseStr(name))
+			return _clients[i];
+	return (NULL);
 }
 
-void ServerState::clientChangeName(Client *cl, std::string const &newName)
+void ServerState::clientChangeName(Client *cl, std::string const &newName) const
 {
 	if (cl->hasNickname())
-		_clientsByName.erase(cl->getNickname());
+	{
+		std::set<Client *> recipients = getUsersClientKnows(cl);
+
+		std::string msg = ":" + cl->getIrcNickname() + " NICK :" + newName + "\r\n";
+		for(std::set<Client *>::iterator it = recipients.begin(); it != recipients.end(); ++it)
+			(*it)->receiveMsg(msg);
+	}
+
 	cl->setNickname(newName);
-	_clientsByName.insert(std::pair<std::string, Client *>(newName, cl));
 }
 
 void ServerState::addClient(Client *cl)
 {
 	_clients.push_back(cl);
-	_clientsByFd.insert(std::pair<int, Client *>(cl->getFd(), cl));
 }
 
 void ServerState::removeClient(Client *cl)
@@ -111,16 +159,25 @@ void ServerState::removeClient(Client *cl)
 		return ;
 
 	pollfdRemove(cl->getFd());
-	_clientsByFd.erase(cl->getFd());
-	_clientsByName.erase(cl->getNickname());
 	_clients.erase(std::find(_clients.begin(), _clients.end(), cl));
+	removeFromAllChannels(cl);
     delete cl;
 }
 
-int							ServerState::getPort() 				const 	{ return _port; }
-std::string const&			ServerState::getPassword() 			const 	{ return _password; }
-int 						ServerState::getServerSockerFd() 	const 	{ return _serverSocketfd; }
-std::vector<struct pollfd>& ServerState::getPollFds() 					{ return _pollfds; }
+void ServerState::removeFromAllChannels(Client *cl)
+{
+	for(size_t i = 0; i < _channels.size(); ++i)
+	{
+		_channels[i]->removeMember(cl);
+		if (_channels[i]->isEmpty())
+			removeChannel(_channels[i]);
+	}
+}
+
+int									ServerState::getPort() 				const 	{ return _port; }
+std::string const&					ServerState::getPassword() 			const 	{ return _password; }
+int 								ServerState::getServerSockerFd() 	const 	{ return _serverSocketfd; }
+std::vector<struct pollfd> const& 	ServerState::getPollFds() 					{ return _pollfds; }
 
 void						ServerState::setPort(int port) { _port = port; }
 void						ServerState::setPassword(std::string const &password) { _password = password; }
