@@ -41,7 +41,7 @@ class Channel {
 
 	
 
-	Channel(std::string const& name);
+	explicit Channel(std::string const& name);
 	Channel(Client *creator, std::string const& name);
 
 	// Getters

@@ -1,0 +1,14 @@
+Server created
+Client connected
+single received msg: PASS a
+single received msg: NICK test
+single received msg: USER test 0 * :test
+single received msg: JOIN
+Client receives: :server 461 test JOIN :Not enough parameters
+Client receives: :server 001 test :Welcome to the IRC server
+Client disconnected
+Client connected
+single received msg: PASS a
+single received msg: NICK
+
+signal catched

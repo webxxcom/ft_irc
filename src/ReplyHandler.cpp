@@ -69,7 +69,7 @@ void ReplyHandler::noRecipient(Client *client, std::string const &command) const
     handle(ERR_NORECIPIENT, client, command);
 }
 
-void ReplyHandler::noTextToSend(Client *client)
+void ReplyHandler::noTextToSend(Client *client) const
 {
     handle(ERR_NOTEXTTOSEND, client);
 }
@@ -165,7 +165,7 @@ void ReplyHandler::inviting(Client *inviter, Client *invitee, const std::string 
     handle(RPL_INVITING, inviter, invitee->getNickname() + " " + channelName);
 }
 
-void ReplyHandler::nameReply(Client *client, Channel *channel) const
+void ReplyHandler::nameReply(Client *client, Channel const* channel) const
 {
     std::string names, symbol = channel->isInviteOnly() ? "*" : "=";
 

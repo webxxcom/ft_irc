@@ -1,0 +1,173 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/c++",
+      "-Iinclude",
+      "-g",
+      "-D_GLIBCXX_DEBUG",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-std=c++98",
+      "-c",
+      "-o",
+      "obj/main.o",
+      "src/main.cpp"
+    ],
+    "directory": "/home/webxxcom/Projects/ft_irc",
+    "file": "/home/webxxcom/Projects/ft_irc/src/main.cpp",
+    "output": "/home/webxxcom/Projects/ft_irc/obj/main.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/c++",
+      "-Iinclude",
+      "-g",
+      "-D_GLIBCXX_DEBUG",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-std=c++98",
+      "-c",
+      "-o",
+      "obj/Server.o",
+      "src/Server.cpp"
+    ],
+    "directory": "/home/webxxcom/Projects/ft_irc",
+    "file": "/home/webxxcom/Projects/ft_irc/src/Server.cpp",
+    "output": "/home/webxxcom/Projects/ft_irc/obj/Server.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/c++",
+      "-Iinclude",
+      "-g",
+      "-D_GLIBCXX_DEBUG",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-std=c++98",
+      "-c",
+      "-o",
+      "obj/Exceptions.o",
+      "src/Exceptions.cpp"
+    ],
+    "directory": "/home/webxxcom/Projects/ft_irc",
+    "file": "/home/webxxcom/Projects/ft_irc/src/Exceptions.cpp",
+    "output": "/home/webxxcom/Projects/ft_irc/obj/Exceptions.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/c++",
+      "-Iinclude",
+      "-g",
+      "-D_GLIBCXX_DEBUG",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-std=c++98",
+      "-c",
+      "-o",
+      "obj/CommandHandler.o",
+      "src/CommandHandler.cpp"
+    ],
+    "directory": "/home/webxxcom/Projects/ft_irc",
+    "file": "/home/webxxcom/Projects/ft_irc/src/CommandHandler.cpp",
+    "output": "/home/webxxcom/Projects/ft_irc/obj/CommandHandler.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/c++",
+      "-Iinclude",
+      "-g",
+      "-D_GLIBCXX_DEBUG",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-std=c++98",
+      "-c",
+      "-o",
+      "obj/FileSendHandler.o",
+      "src/FileSendHandler.cpp"
+    ],
+    "directory": "/home/webxxcom/Projects/ft_irc",
+    "file": "/home/webxxcom/Projects/ft_irc/src/FileSendHandler.cpp",
+    "output": "/home/webxxcom/Projects/ft_irc/obj/FileSendHandler.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/c++",
+      "-Iinclude",
+      "-g",
+      "-D_GLIBCXX_DEBUG",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-std=c++98",
+      "-c",
+      "-o",
+      "obj/Client.o",
+      "src/Client.cpp"
+    ],
+    "directory": "/home/webxxcom/Projects/ft_irc",
+    "file": "/home/webxxcom/Projects/ft_irc/src/Client.cpp",
+    "output": "/home/webxxcom/Projects/ft_irc/obj/Client.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/c++",
+      "-Iinclude",
+      "-g",
+      "-D_GLIBCXX_DEBUG",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-std=c++98",
+      "-c",
+      "-o",
+      "obj/Channel.o",
+      "src/Channel.cpp"
+    ],
+    "directory": "/home/webxxcom/Projects/ft_irc",
+    "file": "/home/webxxcom/Projects/ft_irc/src/Channel.cpp",
+    "output": "/home/webxxcom/Projects/ft_irc/obj/Channel.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/c++",
+      "-Iinclude",
+      "-g",
+      "-D_GLIBCXX_DEBUG",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-std=c++98",
+      "-c",
+      "-o",
+      "obj/ReplyHandler.o",
+      "src/ReplyHandler.cpp"
+    ],
+    "directory": "/home/webxxcom/Projects/ft_irc",
+    "file": "/home/webxxcom/Projects/ft_irc/src/ReplyHandler.cpp",
+    "output": "/home/webxxcom/Projects/ft_irc/obj/ReplyHandler.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/c++",
+      "-Iinclude",
+      "-g",
+      "-D_GLIBCXX_DEBUG",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-std=c++98",
+      "-c",
+      "-o",
+      "obj/ServerState.o",
+      "src/ServerState.cpp"
+    ],
+    "directory": "/home/webxxcom/Projects/ft_irc",
+    "file": "/home/webxxcom/Projects/ft_irc/src/ServerState.cpp",
+    "output": "/home/webxxcom/Projects/ft_irc/obj/ServerState.o"
+  }
+]

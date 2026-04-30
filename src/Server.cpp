@@ -13,7 +13,7 @@ int Server::parseArgs(int ac, char *av[])
     if (ac != 3)
         return ARGS_NUM_INVALID;
     char *rest;
-    int p = strtol(av[1], &rest, 10);
+    long p = strtol(av[1], &rest, 10);
     const bool range_error = errno == ERANGE;
     if (range_error)
         return PORT_NUM_INVALID;
@@ -138,15 +138,7 @@ bool Server::handleTransferFd(int fd, int ev)
     {
         _fileSendHandler.sendChunk(ts);
 
-        if (ts->state == TransferSession::DONE)
-        {
-            ::close(ts->socketFd);
-            _state.pollfdRemove(ts->socketFd);
-            _state.removeTransferSession(ts);
-            return true;
-        }
-
-        if (ts->state == TransferSession::FAILED)
+        if (ts->state == TransferSession::DONE || ts->state == TransferSession::FAILED)
         {
             ::close(ts->socketFd);
             _state.pollfdRemove(ts->socketFd);
@@ -279,14 +271,14 @@ void Server::handlePolls(std::vector<struct pollfd> &pollfds)
                         iDisconnected = true;
                     }
                 }
-                if (!iDisconnected && pollfds[i].revents & POLLIN)
+                if (!iDisconnected && (pollfds[i].revents & POLLIN))
                 {
                     if (pollfds[i].fd == _state.getServerSockerFd())
                         acceptClient();
                     else
                         iDisconnected = receiveClientData(_state.clientFindByFd(pollfds[i].fd));
                 }
-                if (!iDisconnected && pollfds[i].revents & POLLOUT)
+                if (!iDisconnected && (pollfds[i].revents & POLLOUT))
                     iDisconnected = messageClient(_state.clientFindByFd(pollfds[i].fd));
             }
         }

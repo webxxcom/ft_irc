@@ -110,14 +110,13 @@ bool openTransferSocket(TransferSession *ts)
     return true;
 }
 
-void FileSendHandler::accept(Client *, TransferSession *ts)
+void FileSendHandler::accept(Client *, TransferSession *ts) const
 {
-    ts->state = ts->ACCEPTED;
-
-    ts->state = ts->TRANSFERRING;
+    if (ts->state != TransferSession::TRANSFERRING)
+        ts->state = ts->ACCEPTED;
 }
 
-void FileSendHandler::reject(Client *, TransferSession *ts)
+void FileSendHandler::reject(Client *, TransferSession *ts) const
 {
     ts->state = ts->REJECTED;
 }

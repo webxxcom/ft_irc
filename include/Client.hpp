@@ -33,14 +33,14 @@ private:
 	Client();
 public:
 	struct NickEquals {
-		NickEquals(std::string const& target) {_target = target; };
-		bool operator()(Client const* cl) { return cl->getNickname() == _target; }
+		explicit NickEquals(std::string const& target) : _target(target) { };
+		bool operator()(Client const* cl) const { return cl->getNickname() == _target; }
 	public:
 		std::string _target;
 	};
 
 	// Constructors
-	Client(int fd);
+	explicit Client(int fd);
 	Client(const Client &orig);
 	Client&operator=(const Client &orig);
 	~Client();

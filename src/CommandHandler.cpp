@@ -161,6 +161,9 @@ void CommandHandler::handleJoin(Client *client, std::stringstream &command)
 	std::string channelName, key;
 	command >> channelName >> key;
 
+	if (channelName.empty())
+		return _replyHandler.needMoreParams(client, "JOIN");
+		
 	std::stringstream channelList;
 	channelList << channelName;
 	std::stringstream keyList;

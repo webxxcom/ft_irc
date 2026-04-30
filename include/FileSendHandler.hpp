@@ -8,11 +8,11 @@ class TransferSession;
 
 class FileSendHandler {
 public:
-    FileSendHandler(ServerState &server);
+    explicit FileSendHandler(ServerState &server);
 
     void request(Client *sender, Client *recevier, std::string const& filename);
-    void accept(Client *client, TransferSession *ts);
-    void reject(Client *client, TransferSession *ts);
+    void accept(Client *client, TransferSession *ts) const;
+    void reject(Client *client, TransferSession *ts) const;
     void sendChunk(TransferSession* ts);
 private:
    ServerState &_serverState;

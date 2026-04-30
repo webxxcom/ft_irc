@@ -18,7 +18,7 @@ struct ChannelTopic;
 
 class ReplyHandler {
 public:
-    ReplyHandler(Server &server);
+    explicit ReplyHandler(Server &server);
     ~ReplyHandler();
 
     void noNickSupplied(Client *client) const;
@@ -31,7 +31,7 @@ public:
     void alreadyOnChannel(Client* client, const std::string &inviteeName, const std::string& channelName) const;
     void userNotInChannel(Client* client, const std::string& nick, const std::string& channelName) const;
     void noRecipient(Client *client, std::string const& command) const;
-    void noTextToSend(Client *client);
+    void noTextToSend(Client *client) const;
 
     void channelIsFull(Client* client, const std::string& channelName) const;
     void inviteOnlyChannel(Client* client, const std::string& channelName) const;
@@ -60,7 +60,7 @@ public:
 
     void inviting(Client *inviter, Client *invitee, const std::string& channelName) const;
 
-    void nameReply(Client* client, Channel *channel) const;
+    void nameReply(Client* client, Channel const* channel) const;
     void endOfNames(Client* client, const std::string& channelName) const;
 
     void topicEmpty(Client* client,  const std::string& channelName) const;

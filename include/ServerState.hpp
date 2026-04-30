@@ -51,8 +51,8 @@ private:
 	struct CompareByFd
 	{   
 		int _fd;
-		CompareByFd(int fd) : _fd(fd) {}
-		bool operator()(pollfd const& o) { return (o.fd == _fd); }
+		explicit CompareByFd(int fd) : _fd(fd) {}
+		bool operator()(pollfd const& o) const { return (o.fd == _fd); }
 	};
 	
 	
