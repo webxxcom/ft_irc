@@ -14,9 +14,3 @@ class ServerErrorException : public ServerException {
 public:
     explicit ServerErrorException(std::string const& msg);
 };
-
-// Exception caused by some client bad behavior
-class ClientException : public ServerException {
-public:
-    explicit ClientException(std::string const& msg);
-};

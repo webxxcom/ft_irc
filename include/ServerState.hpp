@@ -7,7 +7,7 @@
 #include <iostream>
 #include <set>
 
-class TransferSession;
+struct TransferSession;
 class Client;
 class Channel;
 class FileSendHandler;

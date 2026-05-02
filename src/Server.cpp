@@ -92,6 +92,7 @@ void Server::acceptClient(void) {
 
 void Server::disconnectClient(Client *client)
 {
+    // empty the buffer
     _state.removeClient(client);
 }
 

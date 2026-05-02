@@ -4,7 +4,7 @@
 
 class Client;
 class ServerState;
-class TransferSession;
+struct TransferSession;
 
 class FileSendHandler {
 public:
