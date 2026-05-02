@@ -18,7 +18,7 @@ struct ChannelTopic;
 
 class ReplyHandler {
 public:
-    ReplyHandler();
+    ReplyHandler(Server &server);
     ~ReplyHandler();
 
     void erroneusNick(Client *client, const std::string &nick) const;
@@ -62,5 +62,5 @@ public:
 
 private:
     void handle(irc::ServerNotifyCodes code, Client *client, std::string const& extra = "") const;
-
+    Server &_server;
 };

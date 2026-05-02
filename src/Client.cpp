@@ -7,10 +7,10 @@
 #include "Channel.hpp"
 #include <algorithm>
 
-ClientState::ClientState() : pass_ok(false), has_nick(false), has_user(false) { }
+ClientState::ClientState() : pass_ok(false), has_nick(false), has_user(false), pendingDisconnect(false) { }
 
-Client::Client() : _state() {}
-Client::Client(int fd) : _state(), _fd(fd)
+Client::Client() : _state() , _registrationChecked(false) {}
+Client::Client(int fd) : _state(), _fd(fd), _registrationChecked(false) 
 {
     std::cout << "Client connected" << std::endl;
 }
@@ -135,4 +135,20 @@ void Client::clearinMsg(void) {
 
 void Client::addinMsg(std::string remainder) {
     _inMsg.push(remainder);
+}
+
+bool Client::isPendingDisconnect() {
+    return this->_state.pendingDisconnect;
+}
+
+void Client::setPendingDisconnect(bool status) {
+    this->_state.pendingDisconnect = status;
+}
+
+bool Client::isRegistrationChecked(void) {
+    return this->_registrationChecked;
+}
+
+void Client::changeRegistrationChecked(bool status) {
+    this->_registrationChecked = status;
 }

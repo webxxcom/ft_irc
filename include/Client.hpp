@@ -11,6 +11,7 @@ struct ClientState
     bool pass_ok;
     bool has_nick;
     bool has_user;
+    bool pendingDisconnect;
 
     ClientState();
 };
@@ -29,6 +30,8 @@ private:
     std::queue<std::string>         _outMsg;
     std::queue<std::string>         _inMsg;
     std::vector<Channel *>          _invitedTo;
+    bool                            _registrationChecked;
+
 public:
     struct NickEquals {
         NickEquals(std::string const& target) {_target = target; };
@@ -57,6 +60,8 @@ public:
     int getFd() const;
     bool isRegistered() const;
     bool hasNickname() const;
+    bool isPendingDisconnect();
+    bool isRegistrationChecked();
 
     std::queue<std::string> getInMsg(void) const;
     void clearinMsg();
@@ -74,6 +79,8 @@ public:
     void getsInvitedTo(Channel *ch);
     
     void receiveMsg(std::string const& msg);
+    void setPendingDisconnect(bool status);
+    void changeRegistrationChecked(bool checked);
 
     friend class Tester;
 } ;

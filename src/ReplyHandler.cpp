@@ -12,8 +12,9 @@ date: 4/6/2026
 #include "Channel.hpp"
 #include "Server.hpp"
 #include <iostream>
+#include <iomanip>
 
-ReplyHandler::ReplyHandler()  { }
+ReplyHandler::ReplyHandler(Server &server)  : _server(server){ }
 ReplyHandler::~ReplyHandler() { }
 
 using namespace irc;
@@ -113,6 +114,7 @@ void ReplyHandler::passwdMismatch(Client *client) const
     handle(ERR_PASSWDMISMATCH, client);
 }
 
+//issue 1
 void ReplyHandler::welcome(Client *client) const
 {
     handle(RPL_WELCOME, client);
@@ -187,7 +189,8 @@ void ReplyHandler::currentTopicInfo(Client* client, std::string const& channelNa
 void ReplyHandler::handle(irc::ServerNotifyCodes code, Client *client, std::string const &extra) const
 {
     std::stringstream msg;
-    msg << ":server " << (int)code << " " + client->getIrcNickname();
+    msg << ":server " << std::setfill('0') << std::setw(3) << code << " " + client->getIrcNickname();
+    // msg << ":server " << (int)code << " " + client->getIrcNickname();
     if (!extra.empty())
         msg << " ";
 
@@ -286,5 +289,6 @@ void ReplyHandler::handle(irc::ServerNotifyCodes code, Client *client, std::stri
     msg << "\r\n";
     std::cout << "Sending" << msg.str();
     client->receiveMsg(msg.str());
-    _server.clientIsReady(client);
+    _server.clientReadyReceive(client);
+
 }

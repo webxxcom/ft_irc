@@ -28,7 +28,7 @@ int Server::parseArgs(int ac, char *av[])
     return OK;
 }
 
-Server::Server(int ac, char *av[]) : _serverSocketfd(-1), _commandHandler(*this, _replyHandler) {
+Server::Server(int ac, char *av[]) : _serverSocketfd(-1), _replyHandler(*this), _commandHandler(*this, _replyHandler) {
     int status = this->parseArgs(ac, av);
     if (status == ARGS_NUM_INVALID)
         throw ServerErrorException("Arguments invalid\nRun with: ./irc <port> <password>");
@@ -95,17 +95,18 @@ void Server::acceptClient(void) {
     Client *cl = new Client(clientfd.fd);
     _clients.push_back(cl);
     _clientsByFd.insert(std::pair<int, Client *>(cl->getFd(), cl));
+    //might be issue? empty strings if more before setting??
     _clientsByName.insert(std::pair<std::string, Client *>(cl->getNickname(), cl));
 }
 
-void Server::disconnectClient(Client &client) {
-    shutdown(client.getFd(), SHUT_WR); 
-    close(client.getFd());
-    std::remove_if(_pollfds.begin(), _pollfds.end(), CompareByFd(client.getFd()));
-    _clientsByFd.erase(client.getFd());
-    _clientsByName.erase(client.getNickname());
-    _clients.erase(std::find(_clients.begin(), _clients.end(), &client));
-    // delete client; // !!!
+void Server::disconnectClient(Client *client) {
+    shutdown(client->getFd(), SHUT_WR); 
+    close(client->getFd());
+    _pollfds.erase(std::remove_if(_pollfds.begin(), _pollfds.end(), CompareByFd(client->getFd())), _pollfds.end());
+    _clientsByFd.erase(client->getFd());
+    _clientsByName.erase(client->getNickname());
+    _clients.erase(std::remove(_clients.begin(), _clients.end(), client), _clients.end());
+    delete client; 
 }
 
 bool Server::receiveClientData(Client *client)
@@ -125,14 +126,14 @@ bool Server::receiveClientData(Client *client)
 
             client->getReceivedMessages().push(singleMsg);
 
-            // std::cout << "msg: " << singleMsg << '\n';
             buffer.erase(0, endMsg + 2);
         }
         _commandHandler.handle(client);
 
-        if (client->isRegistered()) {
+        if (client->isRegistered() && !client->isRegistrationChecked()) { //add flag if first time? otherwise gets welcome everytime
             _replyHandler.welcome(client);
             std::find_if(_pollfds.begin(), _pollfds.end(), CompareByFd(client->getFd()))->events = POLLIN | POLLOUT;
+            client->changeRegistrationChecked(true);
         }
     }
     else
@@ -141,18 +142,22 @@ bool Server::receiveClientData(Client *client)
             std::cout << "Client disconnected" << std::endl;
         else
             std::cerr << "recv() error" << std::endl;
-        disconnectClient(*client);
+        disconnectClient(client);
         return true;
     }
     return false;
 }
 
-bool Server::messageClient(Client &client) {
-    std::vector<struct pollfd>::iterator it = _pollfds.begin();
+bool Server::messageClient(Client *client) {
+    std::vector<struct pollfd>::iterator it = std::find_if(_pollfds.begin(), _pollfds.end(), CompareByFd(client->getFd()));
 
-    std::queue<std::string> msgtoSend = client.getInMsg();
+    std::queue<std::string> msgtoSend = client->getInMsg();
     if (msgtoSend.empty()) {
         it->events = POLLIN;
+        if (client->isPendingDisconnect()) {
+            disconnectClient(client);
+            return true;
+        }
         return false;
     }
     std::string longMsg = "";
@@ -160,18 +165,25 @@ bool Server::messageClient(Client &client) {
         longMsg += msgtoSend.front();
         msgtoSend.pop();
     }
-    client.clearinMsg();
-    ssize_t bytessend = send(client.getFd(), longMsg.c_str(), longMsg.length(), MSG_NOSIGNAL);
+    client->clearinMsg();
+    ssize_t bytessend = send(client->getFd(), longMsg.c_str(), longMsg.length(), MSG_NOSIGNAL);
     if (bytessend > 0) {
         if (static_cast<size_t>(bytessend) < longMsg.length()) {
             std::string remainder = longMsg.substr(bytessend);
-            client.addinMsg(remainder);
+            client->addinMsg(remainder);
             it->events = POLLIN | POLLOUT;
+        }
+        else {
+            if (client->isPendingDisconnect()) {
+                disconnectClient(client);
+                return true;
+            }
+            it->events = POLLIN;
         }
     }
     else if (bytessend == -1) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            client.addinMsg(longMsg);
+            client->addinMsg(longMsg);
             it->events = POLLIN | POLLOUT;
         }
         else {
@@ -183,8 +195,8 @@ bool Server::messageClient(Client &client) {
     return false;
 }
 
+//different because of pointers
 void Server::finishServer(void) {
-
     // or maybe close in clients destructor, would probably be better
     for (size_t k = 0; k < this->_pollfds.size(); ++k) {
         if (this->_pollfds[k].fd >= 0)
@@ -193,7 +205,6 @@ void Server::finishServer(void) {
     this->_pollfds.clear();
     this->_clients.clear();
     this->_channels.clear();
-    //if roman uses pointers, first need to free memory (close, delete, clear)
 }
 
 AdvancedMap<std::string, Channel *> const &Server::getChannelsByName() const
@@ -221,73 +232,49 @@ void Server::startServer(void) {
 void Server::handlePolls()
 {
     std::size_t i = 0;
-    bool iDisconnected = false;
-
-    //discuss with roman: since moved outside start server, diffrent ctrl+c behaviour
-    //is it ok according to subject?
 
     while (i < this->_pollfds.size())
     {
-        try
+        bool iDisconnected = false;
+
+        if (this->_pollfds[i].revents != 0)
         {
-            if (this->_pollfds[i].revents != 0)
-            {
-                if (this->_pollfds[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
-                    if (this->_pollfds[i].fd == this->_serverSocketfd) {
-                        finishServer();
-                        return ;
-                    }
-                    else
-                        disconnectClient(*this->_clientsByFd[this->_pollfds[i].fd]);
-                        iDisconnected = true;
+            if (this->_pollfds[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
+                if (this->_pollfds[i].fd == this->_serverSocketfd) {
+                    finishServer();
+                    return ;
                 }
-                if (!iDisconnected && this->_pollfds[i].revents & POLLIN) {
+                else {
+                    disconnectClient(this->_clientsByFd[this->_pollfds[i].fd]);
+                    iDisconnected = true;
+                }
+            }
+            if (!iDisconnected && this->_pollfds[i].revents & POLLIN) {
+                try {
                     if (this->_pollfds[i].fd == this->_serverSocketfd)
                         acceptClient();
                     else
                         iDisconnected = receiveClientData(this->_clientsByFd[this->_pollfds[i].fd]);
                 }
-                if (!iDisconnected && this->_pollfds[i].revents & POLLOUT)
-                    iDisconnected = messageClient(*this->_clientsByFd.at(this->_pollfds[i].fd));
+                catch (const ClientException& e) {
+                    std::string errMsg = std::string("Error :") + e.what() + "\r\n";
+                    this->_clientsByFd[this->_pollfds[i].fd]->receiveMsg(errMsg);
+                    this->clientReadyReceive(this->_clientsByFd[this->_pollfds[i].fd]);
+                    //will make issue..discuss with roman
+                    this->_clientsByFd[this->_pollfds[i].fd]->setPendingDisconnect(true);
+                }
+                //check for server exceptions?
+                //would need to disconnect client immediately
             }
-            // if (!iDisconnected)
-            //     ++i;
-        }
-        // ! talk to roman: dont think can use while loop here to not block server
-        //just send and disconnect?
-        //but also not after poll() so subject incorrect >>buffer instead
-        //also discuss purpose, would change ++i placement
-        catch(const ClientException& e)
-        {
-            //roman thingie
-            // ssize_t total = 0, len = strlen(e.what());
-
-
-
-            // while (total < len)
-            // {
-            //     std::cout << "Sending " << e.what() + total << std::endl;
-            //     // TEST: `messageClient' didn't work
-            //     ssize_t n = ::send(this->_pollfds[i].fd, e.what() + total, strlen(e.what()) - total, 0);
-            //     if (n <= 0)
-            //         break ;
-            //     total += n;
-            // }
-            // //A>by the previously commented logic, isnt it risky to use this->_pollfds[i].fd? 
-            // //why change it everywhere else and leave here??
-
-            // disconnectClient(this->_clients[this->_pollfds[i].fd]);
-            // // iDisconnected = true;
-            // // if specific purpose (roman) add iDisconnected bool
-
-            std::string errMsg = std::string("Error :") + e.what() + "\r\n";
-            std::cout<< "disconnecting fd.." << std::endl;
-            send(this->_pollfds[i].fd, errMsg.c_str(), errMsg.length(), MSG_NOSIGNAL);
-            disconnectClient(*this->_clients[this->_pollfds[i].fd]);
-            iDisconnected = true;
-
-            //or could do bool pending disconnect
-            //this->_clients[this->_pollfds[i].fd].addinMsg(errMsg);
+            if (!iDisconnected && this->_pollfds[i].revents & POLLOUT) {
+                try {
+                    iDisconnected = messageClient(this->_clientsByFd[this->_pollfds[i].fd]);
+                }
+                catch (ServerException& e) {
+                    disconnectClient(this->_clientsByFd[this->_pollfds[i].fd]);
+                    iDisconnected = true;
+                }
+            }      
         }
         if (!iDisconnected)
             ++i;
@@ -301,4 +288,12 @@ Channel *Server::createChannel(Client *creator, std::string const &name)
     _channels.push_back(ch);
     _channelsByName.insert(std::pair<std::string, Channel *>(name, ch));
     return ch;
+}
+
+void Server::clientReadyReceive(Client *client) {
+    if (!client) //discuss checks with roman
+        return;
+    std::vector<struct pollfd>::iterator it = std::find_if(_pollfds.begin(), _pollfds.end(), CompareByFd(client->getFd()));
+    if (it != _pollfds.end())
+        it->events = POLLIN | POLLOUT;
 }

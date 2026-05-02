@@ -24,8 +24,8 @@ class Server {
 		};
 
 		friend class CommandHandler;
-		CommandHandler 							_commandHandler;
 		ReplyHandler							_replyHandler;
+		CommandHandler 							_commandHandler;
 		std::string     			            _password;
 		int             			            _port;
 		int           				            _serverSocketfd;
@@ -45,8 +45,8 @@ class Server {
 		void setupServer();
 		void acceptClient();
 		bool receiveClientData(Client *client);
-		bool messageClient(Client &client);
-		void disconnectClient(Client &client); // Renamed removeClient to disconnectClient
+		bool messageClient(Client *client);
+		void disconnectClient(Client *client);
 
 		void handlePolls();
 		Channel *createChannel(Client *cl, std::string const& name);
@@ -58,6 +58,7 @@ class Server {
 		~Server();
 		void startServer();
 		void finishServer();
+		void clientReadyReceive(Client *client);
 
 		// TEST FUNCTION
 		friend class Tester;
