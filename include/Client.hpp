@@ -21,7 +21,7 @@ class Channel;
 class ServerState;
 
 class Client {
-private:
+protected:
 	int                             _fd;
 	std::string                     _realname;
 	std::string                     _nickname;
