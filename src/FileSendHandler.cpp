@@ -121,35 +121,41 @@ void FileSendHandler::reject(Client *, TransferSession *ts) const
     ts->state = ts->REJECTED;
 }
 
-void FileSendHandler::sendChunk(TransferSession *ts)
+void FileSendHandler::sendChunk(TransferSession *ts) const
 {
     if (ts->state != TransferSession::TRANSFERRING)
-        return ;
+        return;
 
-    char buf[4096];
+    const size_t    bufSize = 4096;
+    char            buf[bufSize];
 
-    ts->ifs.read(buf, sizeof(buf));
+    size_t offset = ts->remainder.size();
+
+    if (!ts->remainder.empty())
+        std::memcpy(buf, ts->remainder.data(), offset);
+
+    ts->ifs.read(buf + offset, bufSize - offset);
     std::streamsize n = ts->ifs.gcount();
 
-    if (n <= 0)
+    size_t total = offset + n;
+
+    if (total == 0)
     {
         ts->state = TransferSession::DONE;
         return;
     }
 
-    std::streamsize off = 0;
+    ssize_t sent = ::send(ts->socketFd, buf, total, 0);
 
-    while (off < n)
+    if (sent < 0)
     {
-        ssize_t sent = ::send(ts->socketFd, buf + off, n - off, 0);
-
-        if (sent <= 0)
-        {
-            ts->state = TransferSession::FAILED;
-            return;
-        }
-
-        off += sent;
+        ts->state = TransferSession::FAILED;
+        return;
     }
+
+    if ((size_t)sent < total)
+        ts->remainder.assign(buf + sent, total - sent);
+    else
+        ts->remainder.clear();
 }
 

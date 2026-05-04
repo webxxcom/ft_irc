@@ -19,6 +19,7 @@ struct TransferSession
 	Client *to;
 	Client *from;
 	std::string file;
+	std::string remainder;
 	long size;
 	states state;
 	int listenerFd;

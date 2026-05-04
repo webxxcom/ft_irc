@@ -13,7 +13,7 @@ public:
     void request(Client *sender, Client *recevier, std::string const& filename);
     void accept(Client *client, TransferSession *ts) const;
     void reject(Client *client, TransferSession *ts) const;
-    void sendChunk(TransferSession* ts);
+    void sendChunk(TransferSession* ts) const;
 private:
    ServerState &_registry;
 

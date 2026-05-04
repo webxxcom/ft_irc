@@ -244,7 +244,7 @@ void Server::handlePolls(std::vector<pollfd> const pollfds)
         {
             if (pollfds[i].revents & (POLLERR | POLLHUP | POLLNVAL))
             {
-                if (pollfds[i].fd == _state.getServerSockerFd())
+                if (pollfds[i].fd == _state.getServerSocketFd())
                 {
                     _state.clientDisconnects(_state.clientFindByFd(pollfds[i].fd));
                     continue ;
@@ -254,7 +254,7 @@ void Server::handlePolls(std::vector<pollfd> const pollfds)
             }
             if (pollfds[i].revents & POLLIN)
             {
-                if (pollfds[i].fd == _state.getServerSockerFd())
+                if (pollfds[i].fd == _state.getServerSocketFd())
                     acceptClient();
                 else
                     receiveClientData(_state.clientFindByFd(pollfds[i].fd));

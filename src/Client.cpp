@@ -16,7 +16,6 @@ ClientState::ClientState()
 	, pendingDisconnect(false)
 { }
 
-Client::Client() { }
 Client::Client(int fd) : _fd(fd)
 {
 	std::cout << "Client connected" << std::endl;
@@ -45,44 +44,29 @@ Client::~Client() {
 
 bool Client::operator==(Client const &other) const { return _fd == other._fd; }
 
-std::queue<std::string> const&	Client::getOutMssgs()	const   { return _outMsg; }
+std::queue<std::string> const&	Client::getOutMssgs()				const   { return _outMsg; }
 std::queue<std::string> const&	Client::getInMssgs(void) 			const 	{ return _inMsg; }
-std::string const&				Client::getRecvBuffer()			const   { return _buffer; }
-std::string const&				Client::getNickname()      		const   { return _nickname; }
-std::string const&				Client::getUsername()      		const   { return _username; }
-std::string const&				Client::getRealname()      		const   { return _realname; }
-int                         	Client::getFd()             	const   { return _fd; }
-std::string                 	Client::getIrcNickname()    	const   { return _state.has_nick ? _nickname : "*"; }
-std::string                 	Client::getFullUserPrefix() 	const   { return _nickname + "!" + _username + "@" + "server"; }
+std::string const&				Client::getRecvBuffer()				const   { return _buffer; }
+std::string const&				Client::getNickname()      			const   { return _nickname; }
+std::string const&				Client::getUsername()      			const   { return _username; }
+std::string const&				Client::getRealname()      			const   { return _realname; }
+std::string                 	Client::getIrcNickname()    		const   { return _state.has_nick ? _nickname : "*"; }
+std::string                 	Client::getFullUserPrefix() 		const   { return _nickname + "!" + _username + "@" + "server"; }
+int                         	Client::getFd()             		const   { return _fd; }
+bool 							Client::wasWelcomed() 				const	{ return _state.was_welcomed; }
+bool							Client::hasNickname() 				const	{ return _state.has_nick; }
+bool							Client::isCapNegotiating() 			const	{ return _state.cap_negotiating; }
+bool							Client::isPendingDisconnect()		const	{ return _state.pendingDisconnect; }
+bool							Client::hasPassword()				const	{ return _state.pass_ok; }
+bool							Client::isInvitedTo(Channel *ch)	const	{ return std::find(_invitedTo.begin(), _invitedTo.end(), ch) != _invitedTo.end(); }
 
 bool Client::isRegistered() const
 {
-	return _state.has_nick && _state.has_user && _state.pass_ok && !_state.cap_negotiating;
+	return _state.has_nick && _state.has_user && _state.pass_ok && !_state.cap_negotiating && !_state.pendingDisconnect;
 }
 
-bool Client::wasWelcomed() 				const	{ return _state.was_welcomed; }
-bool Client::hasNickname() 				const	{ return _state.has_nick; }
-bool Client::isCapNegotiating() 		const	{ return _state.cap_negotiating; }
-bool Client::isPendingDisconnect()		const	{ return _state.pendingDisconnect; }
-bool Client::hasPassword()				const	{ return _state.pass_ok; }
-bool Client::isInvitedTo(Channel *ch)	const	{ return std::find(_invitedTo.begin(), _invitedTo.end(), ch) != _invitedTo.end(); }
-
-void Client::addtoBuffer(std::string msg) {
-	this->_buffer.append(msg);
-	size_t endMsg;
-	while ((endMsg = this->_buffer.find("\r\n")) != std::string::npos) {
-		std::string singleMsg = this->_buffer.substr(0, endMsg);
-		this->_outMsg.push(singleMsg);
-		this->_buffer.erase(0, endMsg + 2);
-	}
-}
-
-
-void Client::setUsername(std::string const& realname)
-{
-	_username = realname;
-	_state.has_user = true;
-}
+void Client::setUsername(std::string const& realname)	{ _username = realname; _state.has_user = true; }
+void Client::setNickname(std::string const& nickname)	{ _nickname = nickname; _state.has_nick = true; }
 void Client::setPassword(std::string const&) 			{ _state.pass_ok = true; }
 void Client::setRealname(std::string const& realname) 	{ _realname = realname; }
 void Client::setIsCapNegotiating(bool flag) 			{ _state.cap_negotiating = flag; }
@@ -106,12 +90,6 @@ void Client::putIntoRecvBuffer(std::string const& data)
 	}
 }
 
-void Client::setNickname(std::string const& nickname)
-{
-	_nickname = nickname;
-	_state.has_nick = true;
-}
-
 void Client::receiveMsg(std::string const &msg, ServerState const& state)
 {
 	_inMsg.push(msg);
@@ -120,4 +98,4 @@ void Client::receiveMsg(std::string const &msg, ServerState const& state)
 
 void Client::clearOutMssgs(void) 					{ _outMsg = std::queue<std::string>(); }
 void Client::clearInMssgs(void) 					{ _inMsg = std::queue<std::string>(); }
-void Client::addInMsg(std::string remainder) 		{ _inMsg.push(remainder); }
+void Client::addInMsg(std::string const& remainder)	{ _inMsg.push(remainder); }

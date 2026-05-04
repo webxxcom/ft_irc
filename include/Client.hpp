@@ -33,8 +33,6 @@ private:
 	std::queue<std::string>         _inMsg;
 	std::vector<Channel *>          _invitedTo;
 	
-	Client();
-
 public:
 	struct NickEquals {
 		explicit NickEquals(std::string const& target) : _target(target) { };
@@ -71,9 +69,7 @@ public:
 
 	void clearInMssgs();
 	void clearOutMssgs(void);
-	void addInMsg(std::string remainder);
-
-	void addtoBuffer(std::string msg);
+	void addInMsg(std::string const& remainder);
 
 	// Modifiers
 	void setNickname(std::string const& nickname);

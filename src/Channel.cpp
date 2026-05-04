@@ -96,20 +96,10 @@ void Channel::removeOperator(Client *cl)
 	_operators.erase(cl);
 }
 
-void Channel::makeInviteOnly() { _modes._modes |= E_INVITE_ONLY; }
-void Channel::makeTopicRestricted() { _modes._modes |= E_TOPIC_RESTRICT; }
-
-void Channel::makeUserLimit(size_t l)
-{
-	_modes._modes |= E_USER_LIMIT;
-	_modes._userLimit = l;
-}
-
-void Channel::makeKey(std::string const &key)
-{
-	_modes._modes |= E_CHANNEL_KEY;
-	_modes._key = key;
-}
+void Channel::makeInviteOnly()					{ _modes._modes |= E_INVITE_ONLY; }
+void Channel::makeTopicRestricted()				{ _modes._modes |= E_TOPIC_RESTRICT; }
+void Channel::makeUserLimit(size_t l)			{ _modes._modes |= E_USER_LIMIT; _modes._userLimit = l; }
+void Channel::makeKey(std::string const &key)	{ _modes._modes |= E_CHANNEL_KEY; _modes._key = key; }
 
 void Channel::broadcast(std::string const &msg, ServerState const& registry)
 {
@@ -121,5 +111,5 @@ void Channel::setTopic(std::string const& topic, Client* cl) {
 	this->_topic._text = topic;
 	this->_topic._setby = cl->getNickname();
 	std::time_t currentTime = std::time(NULL);
-	this->_topic._time = currentTime;
+	this->_topic._time = currentTime; // ???????? convert from time_t to string 
 }

@@ -331,7 +331,7 @@ void ReplyHandler::handle(irc::ServerNotifyCodes code, Client *client, std::stri
             msg << extra;
             break;
         default:
-            msg << ":ServerNotifyCode was not implemented for this code";
+            msg << ":ServerNotifyCode was not implemented for this reply\\error code";
             break;
     }
     msg << "\r\n";
