@@ -1,6 +1,4 @@
 irc
-*.log
-
 
 # Prerequisites
 *.d
@@ -43,3 +41,7 @@ irc
 
 # debug information files
 *.dwo
+
+*.log
+client.log
+server.log

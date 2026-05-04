@@ -80,5 +80,5 @@ class Channel {
 
 	void setTopic(std::string const& topic, Client* cl);
 
-	void broadcast(std::string const& msg);
+	void broadcast(std::string const& msg, ServerState const& registry);
 };

@@ -40,9 +40,9 @@ void ServerState::pollfdRemove(int fd)
 	}
 }
 
-bool ServerState::pollfdFindByFd(int fd, pollfd &out)
+bool ServerState::pollfdFindByFd(int fd, pollfd& out) const
 {
-	std::vector<pollfd>::iterator it = std::find_if(_pollfds.begin(), _pollfds.end(), CompareByFd(fd));
+	std::vector<pollfd>::const_iterator it = std::find_if(_pollfds.begin(), _pollfds.end(), CompareByFd(fd));
 	if (it != _pollfds.end())
 	{
 		out = *it;
@@ -134,7 +134,7 @@ Client *ServerState::clientFindByNickname(std::string const &name) const
 	return (NULL);
 }
 
-void ServerState::clientChangeName(Client *cl, std::string const &newName) const
+void ServerState::clientChangesName(Client *cl, std::string const &newName) const
 {
 	if (cl->hasNickname())
 	{
@@ -142,7 +142,7 @@ void ServerState::clientChangeName(Client *cl, std::string const &newName) const
 
 		std::string msg = ":" + cl->getIrcNickname() + " NICK :" + newName + "\r\n";
 		for(std::set<Client *>::iterator it = recipients.begin(); it != recipients.end(); ++it)
-			(*it)->receiveMsg(msg);
+			(*it)->receiveMsg(msg, *this);
 	}
 
 	cl->setNickname(newName);
@@ -160,11 +160,11 @@ void ServerState::removeClient(Client *cl)
 
 	pollfdRemove(cl->getFd());
 	_clients.erase(std::find(_clients.begin(), _clients.end(), cl));
-	removeFromAllChannels(cl);
+	removeClientFromAllChannels(cl);
     delete cl;
 }
 
-void ServerState::removeFromAllChannels(Client *cl)
+void ServerState::removeClientFromAllChannels(Client *cl)
 {
 	for(size_t i = 0; i < _channels.size(); ++i)
 	{
@@ -172,6 +172,22 @@ void ServerState::removeFromAllChannels(Client *cl)
 		if (_channels[i]->isEmpty())
 			removeChannel(_channels[i]);
 	}
+}
+
+void ServerState::clientIsReadyToReceiveMessage(Client *cl) const
+{
+	pollfd clientPollFd;
+	if (!pollfdFindByFd(cl->getFd(), clientPollFd))
+		return ;
+
+	clientPollFd.events = POLLIN | POLLOUT;
+}
+
+void ServerState::clientDisconnects(Client *cl) const
+{
+	if (!cl)
+		return;
+	cl->setPendingDisconnect(true);
 }
 
 int									ServerState::getPort() 				const 	{ return _port; }

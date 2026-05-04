@@ -15,6 +15,6 @@ public:
     void reject(Client *client, TransferSession *ts) const;
     void sendChunk(TransferSession* ts);
 private:
-   ServerState &_serverState;
+   ServerState &_registry;
 
 };

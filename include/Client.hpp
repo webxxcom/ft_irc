@@ -18,6 +18,7 @@ struct ClientState
 };
 
 class Channel;
+class ServerState;
 
 class Client {
 private:
@@ -64,6 +65,7 @@ public:
 	bool                            wasWelcomed()				const;
 	bool                            hasNickname()				const;
 	bool                            isCapNegotiating()			const;
+	bool                            isPendingDisconnect()		const;
 	bool                            hasPassword()				const;
 	bool							isInvitedTo(Channel *ch)	const;
 
@@ -84,5 +86,5 @@ public:
 	void getsInvitedTo(Channel *ch);
 
 	void putIntoRecvBuffer(std::string const& data);
-	void receiveMsg(std::string const& msg);
+	void receiveMsg(std::string const& msg, ServerState const& state);
 } ;

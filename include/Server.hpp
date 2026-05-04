@@ -33,9 +33,8 @@ private:
 	void disconnectClient(Client *client);
 	void handleTransferFd(int fd, int ev);
 	void handlePolls(std::vector<struct pollfd> const& pollfds);
-	void finishServer();
 
-	Server(const Server &);
+    Server(const Server &);
 public:
 	Server(int ac, char *av[]);
 	

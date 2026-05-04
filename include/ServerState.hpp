@@ -20,7 +20,7 @@ public:
 	int				poll();
 	void			pollfdAdd(struct pollfd fd);
 	void 			pollfdRemove(int fd);
-	bool			pollfdFindByFd(int fd, pollfd &out);
+	bool			pollfdFindByFd(int fd, pollfd &out) const;
 
 	Channel *createChannel(Client *cl, std::string const& name);
 	Channel *channelFindByName(std::string const& name) const;
@@ -29,13 +29,15 @@ public:
 	void addTransferSession(TransferSession *ts);
 	void removeTransferSession(TransferSession *ts);
 
-	std::set<Client *>	getUsersClientKnows(Client *cl) const;
-	Client*	clientFindByFd(int fd) const;
-	Client*	clientFindByNickname(std::string const& name) const;
-	void clientChangeName(Client *cl, std::string const& newName) const;
-	void addClient(Client *cl);
-	void removeClient(Client *cl);
-	void removeFromAllChannels(Client *cl);
+	std::set<Client *>	getUsersClientKnows(Client *cl)								const;
+	Client*				clientFindByFd(int fd)										const;
+	Client*				clientFindByNickname(std::string const& name)				const;
+	void				clientChangesName(Client *cl, std::string const& newName)	const;
+	void				clientIsReadyToReceiveMessage(Client *cl)					const;
+	void				clientDisconnects(Client *cl)								const;
+	void				addClient(Client *cl);
+	void				removeClient(Client *cl);
+	void				removeClientFromAllChannels(Client *cl);
 
 	int							getPort() const;
 	std::string const&			getPassword() const;

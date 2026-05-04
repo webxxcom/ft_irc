@@ -31,7 +31,7 @@ int Server::parseArgs(int ac, char *av[])
 Server::Server(int ac, char *av[])
     : _state()
     , _fileSendHandler(_state)
-    , _replyHandler(*this)
+    , _replyHandler(_state)
     , _commandHandler(_state, _replyHandler, _fileSendHandler)
 {
     int status = this->parseArgs(ac, av);
@@ -83,7 +83,7 @@ void Server::acceptClient(void) {
     }
     struct pollfd clientfd;
     clientfd.fd = clientSocketfd;
-    clientfd.events = POLLIN | POLLOUT; // ? Why was it only POLLIN
+    clientfd.events = POLLIN | POLLOUT;
     clientfd.revents = 0;
     _state.pollfdAdd(clientfd);
 
@@ -157,11 +157,7 @@ void Server::receiveClientData(Client *client)
         _commandHandler.handle(client);
 
         if (client->isRegistered() && !client->wasWelcomed())
-        if (client->isRegistered() && !client->isRegistrationChecked()) { //add flag if first time? otherwise gets welcome everytime
             _replyHandler.welcome(client);
-            std::find_if(_pollfds.begin(), _pollfds.end(), CompareByFd(client->getFd()))->events = POLLIN | POLLOUT;
-            client->changeRegistrationChecked(true);
-        }
     }
     else
     {
@@ -170,8 +166,6 @@ void Server::receiveClientData(Client *client)
         else
             std::cerr << "recv() error" << std::endl;
         disconnectClient(client);
-        disconnectClient(client);
-        return true;
     }
 }
 
@@ -179,63 +173,47 @@ void Server::messageClient(Client *client) {
     struct pollfd clientPollfd;
     if (!client || !_state.pollfdFindByFd(client->getFd(), clientPollfd))
         return ;
-bool Server::messageClient(Client *client) {
-    std::vector<struct pollfd>::iterator it = std::find_if(_pollfds.begin(), _pollfds.end(), CompareByFd(client->getFd()));
 
     std::queue<std::string> mssgsToSend = client->getInMssgs();
-    if (mssgsToSend.empty()) {
+    if (mssgsToSend.empty())
+    {
         clientPollfd.events = POLLIN;
-        return ;
-    std::queue<std::string> msgtoSend = client->getInMsg();
-    if (msgtoSend.empty()) {
-        it->events = POLLIN;
-        if (client->isPendingDisconnect()) {
+        if (client->isPendingDisconnect())
             disconnectClient(client);
-            return true;
-        }
-        return false;
+        return;
     }
+
     std::string longMsg = "";
-    while(!mssgsToSend.empty()) {
+    while(!mssgsToSend.empty())
+    {
         longMsg += mssgsToSend.front();
         std::cout << "Client receives: " << mssgsToSend.front();
         mssgsToSend.pop();
     }
     client->clearInMssgs();
-    ssize_t bytessend = send(client->getFd(), longMsg.c_str(), longMsg.length(), MSG_NOSIGNAL);
-    client->clearinMsg();
-    ssize_t bytessend = send(client->getFd(), longMsg.c_str(), longMsg.length(), MSG_NOSIGNAL);
+
+    ssize_t bytessend = ::send(client->getFd(), longMsg.c_str(), longMsg.length(), MSG_NOSIGNAL);
     if (bytessend > 0) {
         if (static_cast<size_t>(bytessend) < longMsg.length()) {
-            std::string remainder = longMsg.substr(bytessend);
-            client->addinMsg(remainder);
-            it->events = POLLIN | POLLOUT;
+            client->addInMsg(longMsg.substr(bytessend));
+            clientPollfd.events = POLLIN | POLLOUT;
         }
         else {
-            if (client->isPendingDisconnect()) {
+            clientPollfd.events = POLLIN;
+            if (client->isPendingDisconnect())
                 disconnectClient(client);
-                return true;
-            }
-            it->events = POLLIN;
         }
     }
     else if (bytessend == -1) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            client->addinMsg(longMsg);
-            it->events = POLLIN | POLLOUT;
+            client->addInMsg(longMsg);
+            clientPollfd.events = POLLIN | POLLOUT;
         }
         else {
             std::cerr << "send() error" << std::endl;
             disconnectClient(client);
-            return ; 
         }
     }
-    return ;
-}
-
-void Server::finishServer(void)
-{
-
 }
 
 void Server::startServer(void) {
@@ -269,14 +247,11 @@ void Server::handlePolls(std::vector<struct pollfd> const& pollfds)
             {
                 if (pollfds[i].fd == _state.getServerSockerFd())
                 {
-                    finishServer(); // ! Shouldn't throw to exit? or set g_serverRunning
-                    return ;
-                }
-                else
-                {
-                    disconnectClient(_state.clientFindByFd(pollfds[i].fd));
+                    _state.clientDisconnects(_state.clientFindByFd(pollfds[i].fd));
                     continue ;
                 }
+                else
+                    return ;
             }
             if (pollfds[i].revents & POLLIN)
             {
@@ -289,20 +264,4 @@ void Server::handlePolls(std::vector<struct pollfd> const& pollfds)
                 messageClient(_state.clientFindByFd(pollfds[i].fd));
         }
     }
-}
-
-void Server::clientReadyReceive(Client *client) {
-    if (!client) //discuss checks with roman
-        return;
-    std::vector<struct pollfd>::iterator it = std::find_if(_pollfds.begin(), _pollfds.end(), CompareByFd(client->getFd()));
-    if (it != _pollfds.end())
-        it->events = POLLIN | POLLOUT;
-}
-
-void Server::clientReadyReceive(Client *client) {
-    if (!client) //discuss checks with roman
-        return;
-    std::vector<struct pollfd>::iterator it = std::find_if(_pollfds.begin(), _pollfds.end(), CompareByFd(client->getFd()));
-    if (it != _pollfds.end())
-        it->events = POLLIN | POLLOUT;
 }

@@ -152,7 +152,7 @@ void CommandHandler::handleNick(Client *client, std::stringstream& command)
 	if (_registry.clientFindByNickname(nick))
 		_replyHandler.nicknameAlreadyInUse(client, nick);
 	else
-		_registry.clientChangeName(client, nick);
+		_registry.clientChangesName(client, nick);
 }
 
 void CommandHandler::handleCap(Client *client, std::stringstream& command)
@@ -161,7 +161,7 @@ void CommandHandler::handleCap(Client *client, std::stringstream& command)
 	
 	command >> word;
 	if (word == "LS")
-		client->receiveMsg(":server CAP * LS :\r\n"); // No capabilities
+		client->receiveMsg(":server CAP * LS :\r\n", _registry); // No capabilities
 	else if (word == "REQ")
 		client->setIsCapNegotiating(true);
 	else if (word == "END")
@@ -239,7 +239,7 @@ void CommandHandler::handleJoin(Client *client, std::stringstream &command)
 		std::string msg = 
 			":" + client->getFullUserPrefix() + " JOIN " + channelName + "\r\n";
 		ch->addMember(client);
-		ch->broadcast(msg);
+		ch->broadcast(msg, _registry);
 		_replyHandler.nameReply(client, ch);
 		_replyHandler.endOfNames(client, channelName);
 	}
@@ -282,7 +282,7 @@ void CommandHandler::handlePrivmsg(Client *client, std::stringstream &command)
         if (!ch->hasMember(client))
             return _replyHandler.notOnChannel(client, target);
 
-        ch->broadcast(full);
+        ch->broadcast(full, _registry);
     }
     else
     {
@@ -290,7 +290,7 @@ void CommandHandler::handlePrivmsg(Client *client, std::stringstream &command)
         if (!cl)
             return _replyHandler.noSuchNick(client, target);
 
-        cl->receiveMsg(full);
+        cl->receiveMsg(full, _registry);
     }
 }
 
@@ -324,7 +324,7 @@ void CommandHandler::handleKick(Client *client, std::stringstream &command)
 		":" + client->getNickname() + "!" + client->getUsername() + "@host" +
 		" KICK " + channel + " " + member + " :" + message + "\r\n";
 
-	ch->broadcast(msg);
+	ch->broadcast(msg, _registry);
 	ch->removeMember(target);
 }
 
@@ -398,7 +398,7 @@ void CommandHandler::handleTopic(Client *client, std::stringstream &command)
 		ch->setTopic(newTopic, client);
 		std::string msg;
 		msg = ":" + client->getFullUserPrefix() + " TOPIC " + channelName + " :" + newTopic + "\r\n"; 
-		ch->broadcast(msg);
+		ch->broadcast(msg, _registry);
 	}
 	else {
 		std::string firstWord;
@@ -410,7 +410,7 @@ void CommandHandler::handleTopic(Client *client, std::stringstream &command)
 		ch->setTopic(firstWord, client);
 		std::string msg;
 		msg = ":" + client->getFullUserPrefix() + " TOPIC " + channelName + " :" + firstWord + "\r\n"; 
-		ch->broadcast(msg);
+		ch->broadcast(msg, _registry);
 	}
 }
 
@@ -520,7 +520,7 @@ void CommandHandler::handleMode(Client *client, std::stringstream &command)
 				+ first + " " + replyFlags;
 			if (!replyParams.empty())
 				msg += " " + replyParams;
-			ch->broadcast(msg);
+			ch->broadcast(msg, _registry);
 		}
 		else
 			_replyHandler.channelModeIs(client, first, ch->getIrcModes());
@@ -570,7 +570,7 @@ void CommandHandler::handlePart(Client *client, std::stringstream &command)
 			continue;
 		}
 		std::string msg = ":" + client->getFullUserPrefix() + " PART " + chanName + (reason.empty() ? "" : (" " + reason)) + "\r\n";
-		ch->broadcast(msg);
+		ch->broadcast(msg, _registry);
 		ch->removeMember(client);
 		if (ch->isEmpty())
 			_registry.removeChannel(ch);

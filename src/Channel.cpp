@@ -111,10 +111,10 @@ void Channel::makeKey(std::string const &key)
 	_modes._key = key;
 }
 
-void Channel::broadcast(std::string const &msg)
+void Channel::broadcast(std::string const &msg, ServerState const& registry)
 {
 	for (std::set<Client *>::iterator it = _members.begin(); it != _members.end(); ++it)
-		(*it)->receiveMsg(msg);
+		(*it)->receiveMsg(msg, registry);
 }
 
 void Channel::setTopic(std::string const& topic, Client* cl) {

@@ -11,7 +11,7 @@ class FileSendHandler;
 
 class CommandHandler {
 public:
-	CommandHandler(ServerState &server, ReplyHandler& rh, FileSendHandler &fsh);
+	CommandHandler(ServerState &registry, ReplyHandler& rh, FileSendHandler &fsh);
 
 	void handle(Client *cl);
 

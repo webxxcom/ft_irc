@@ -65,7 +65,7 @@ int createListener(int port, int &realPort)
     return fd;
 }
 
-FileSendHandler::FileSendHandler(ServerState &server) : _serverState(server) { }
+FileSendHandler::FileSendHandler(ServerState &server) : _registry(server) { }
 
 std::string makeToken()
 {
@@ -90,8 +90,8 @@ void FileSendHandler::request(Client *sender, Client *recevier, std::string cons
     std::ostringstream oss;
     oss << ":" << sender->getFullUserPrefix() << " FILE REQ "
         << ts->token << " " << ts->file << " " << ts->size << " " << port << "\r\n";
-    recevier->receiveMsg(oss.str());
-    _serverState.addTransferSession(ts);
+    recevier->receiveMsg(oss.str(), _registry);
+    _registry.addTransferSession(ts);
 }
 
 bool openTransferSocket(TransferSession *ts)

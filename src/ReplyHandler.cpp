@@ -14,7 +14,7 @@ date: 4/6/2026
 #include <iostream>
 #include <iomanip>
 
-ReplyHandler::ReplyHandler(Server &server) : _server(server) { }
+ReplyHandler::ReplyHandler(ServerState &registry) : _registry(registry) { }
 ReplyHandler::~ReplyHandler() { }
 
 using namespace irc;
@@ -144,22 +144,6 @@ void ReplyHandler::pong(Client* client, std::string const &token) const
     handle(RPL_PONG, client, token);
 }
 
-void ReplyHandler::badFileSessionToken(Client *client, std::string const &token) const
-{
-    handle(ERR_BADFILESESSTOKEN, client, token);
-}
-
-void ReplyHandler::fileIsAbsent(Client *client, std::string const &filename) const
-{
-    handle(ERR_FILEISABSENT, client, filename);
-}
-
-void ReplyHandler::pong(Client* client, std::string const &token) const
-{
-    handle(RPL_PONG, client, token);
-}
-
-//issue 1
 void ReplyHandler::welcome(Client *client) const
 {
     handle(RPL_WELCOME, client);
@@ -174,7 +158,7 @@ void ReplyHandler::channelModeIs(Client *client, const std::string &channelName,
 void ReplyHandler::inviting(Client *inviter, Client *invitee, const std::string &channelName) const
 {
 	// :<inviter>!<user>@<host> INVITE <invitee> :<channel>
-    invitee->receiveMsg(":" + inviter->getFullUserPrefix() + " INVITE " + invitee->getNickname() + " :" + channelName + "\r\n");
+    invitee->receiveMsg(":" + inviter->getFullUserPrefix() + " INVITE " + invitee->getNickname() + " :" + channelName + "\r\n", _registry);
     // ! Not sure about username
 
 	// :server 341 <inviter> <invitee> <channel>
@@ -183,7 +167,8 @@ void ReplyHandler::inviting(Client *inviter, Client *invitee, const std::string 
 
 void ReplyHandler::nameReply(Client *client, Channel const* channel) const
 {
-    std::string names, symbol = channel->isInviteOnly() ? "*" : "=";
+    std::string symbol = channel->isInviteOnly() ? "*" : "=";
+    std::string names;
 
     for (std::set<Client*>::iterator it = channel->getMembers().begin(); it != channel->getMembers().end(); ++it)
     {
@@ -351,7 +336,5 @@ void ReplyHandler::handle(irc::ServerNotifyCodes code, Client *client, std::stri
             break;
     }
     msg << "\r\n";
-    client->receiveMsg(msg.str());
-    _server.clientReadyReceive(client);
-
+    client->receiveMsg(msg.str(), _registry);
 }
