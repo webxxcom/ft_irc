@@ -23,7 +23,7 @@ int Server::parseArgs(int ac, char *av[])
         return PORT_NUM_INVALID;
     if (p < 1024 || p > 65536)
         return PORT_NUM_INVALID;
-    _state.setPort(p);
+    _state.setPort((int)p);
     _state.setPassword(av[2]);
     return OK;
 }
@@ -187,7 +187,7 @@ void Server::messageClient(Client *client) {
     while(!mssgsToSend.empty())
     {
         longMsg += mssgsToSend.front();
-        std::cout << "Client receives: " << mssgsToSend.front();
+        std::cout << "Client " << client->getNickname() + " receives: " << mssgsToSend.front();
         mssgsToSend.pop();
     }
     client->clearInMssgs();

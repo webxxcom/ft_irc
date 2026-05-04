@@ -39,5 +39,5 @@ private:
 	void handlePart(Client* client, std::stringstream& command);
 	void handleFile(Client* client, std::stringstream& command);
 
-	Client *clientLooksForUserInChannel(Client *client, std::string const& nick, Channel *ch = NULL) const;
+	Client *clientLooksForUserInChannel(Client *client, std::string const& nick, Channel const* ch = NULL) const;
 };

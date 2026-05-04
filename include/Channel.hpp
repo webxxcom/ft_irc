@@ -14,32 +14,36 @@ struct ChannelTopic{
 } ;
 
 class Channel {
-	private:
-		std::string                 _name;
-		std::vector<std::string>    _messages;
-		std::set<Client *>          _members;
-		std::set<Client *>          _operators;
-		ChannelTopic 				_topic;
+private:
+	std::string                 _name;
+	std::vector<std::string>    _messages;
+	std::set<Client *>          _members;
+	std::set<Client *>          _operators;
+	ChannelTopic 				_topic;
 
 
-		struct Mode{
-			unsigned int            _modes;
-			size_t               	_userLimit;
-			std::string             _key;
+	struct Mode{
+		unsigned int            _modes;
+		size_t               	_userLimit;
+		std::string             _key;
 
-			Mode() : _modes(0), _userLimit(0) { }
-		} _modes;
-
+		Mode() : _modes(0), _userLimit(0) { }
+	} _modes;
 		
-	public:
-		enum ChannelModes {
-			E_INVITE_ONLY = 0x1,
-			E_TOPIC_RESTRICT = 0x2,
-			E_CHANNEL_KEY = 0x4,
-			E_USER_LIMIT = 0x8
-		};
+public:
+	enum ChannelModes {
+		E_INVITE_ONLY = 0x1,
+		E_TOPIC_RESTRICT = 0x2,
+		E_CHANNEL_KEY = 0x4,
+		E_USER_LIMIT = 0x8
+	};
 
-	
+	class NameEquals{
+		std::string _target;
+	public:
+		explicit NameEquals(std::string const& name) : _target(name) { }
+		bool operator()(Channel const* ch) const;
+	};
 
 	explicit Channel(std::string const& name);
 	Channel(Client *creator, std::string const& name);
@@ -76,9 +80,9 @@ class Channel {
 	void makeTopicRestricted();
 	void makeUserLimit(size_t l);
 	void makeKey(std::string const& key);
-	void removeMode(unsigned int mode);
+    void removeMode(unsigned int mode);
 
-	void setTopic(std::string const& topic, Client* cl);
+    void setTopic(std::string const& topic, Client* cl);
 
-	void broadcast(std::string const& msg, ServerState const& registry);
+    void broadcast(std::string const &msg, ServerState const &registry, Client *cl = NULL);
 };

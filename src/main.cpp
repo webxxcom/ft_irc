@@ -20,7 +20,6 @@ int main(int ac, char *av[])
     }
     catch (ServerErrorException &e) {
         std::cout << e.what() << std::endl;
-        //need to close all fds, remove clients atd.
     }
     return 0;
 }

@@ -39,4 +39,6 @@ namespace irc
 		RPL_WELCOME				= 001,
 		RPL_PONG				= 000
 	};
+
+	
 }

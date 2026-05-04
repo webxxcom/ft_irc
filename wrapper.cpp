@@ -18,6 +18,12 @@
 #include <map>
 #include <fstream>
 
+static void sendLine(int sock, const std::string& line)
+{
+    std::string msg = line + "\r\n";
+    send(sock, msg.c_str(), msg.size(), 0);
+}
+
 struct ActiveReceive
 {
     int fd;
@@ -32,15 +38,13 @@ struct ActiveReceive
 
 static ActiveReceive g_rx;
 
-static void receiveFileChunk()
+static void receiveFileChunk(int sock)
 {
     if (g_rx.fd < 0)
         return;
 
     char buf[4096];
-    std::cout << "\n[FILE] trying to recv file\n";
     int n = recv(g_rx.fd, buf, sizeof(buf), 0);
-    std::cout << "\n[FILE] success to recv file\n";
 
     if (n > 0)
     {
@@ -53,6 +57,7 @@ static void receiveFileChunk()
         if (!g_rx.ofs)
         {
             std::cout << "\n[FILE] write failed\n";
+            sendLine(sock, "FILE REJ " + g_rx.token + " :connect failed");
             close(g_rx.fd);
             g_rx.fd = -1;
             return;
@@ -80,8 +85,9 @@ static void receiveFileChunk()
     else
     {
         std::cout << "\n[FILE] recv error\n";
+        sendLine(sock, "FILE REJ " + g_rx.token + " :connect failed");
         g_rx.ofs.close();
-        close(g_rx.fd);
+    close(g_rx.fd);
         g_rx.fd = -1;
     }
 }
@@ -117,12 +123,6 @@ static int connectToServer(const std::string& host, const std::string& port)
 
     freeaddrinfo(res);
     return sock;
-}
-
-static void sendLine(int sock, const std::string& line)
-{
-    std::string msg = line + "\r\n";
-    send(sock, msg.c_str(), msg.size(), 0);
 }
 
 static std::string trimLeft(const std::string& s)
@@ -228,6 +228,7 @@ static void handleCommand(int sock, const std::string& input)
         if (fileSock < 0)
         {
             std::cout << "Failed to connect for file transfer\n";
+            sendLine(sock, "FILE REJ " + token + " :connect failed");
             return;
         }
 
@@ -242,6 +243,7 @@ static void handleCommand(int sock, const std::string& input)
         if (!g_rx.ofs)
         {
             std::cout << "Cannot create file\n";
+            sendLine(sock, "FILE REJ " + token + " :connect failed");
             ::close(fileSock);
             g_rx.fd = -1;
             return;
@@ -349,7 +351,7 @@ int main(int argc, char** argv)
     
         // file transfer socket
         if (g_rx.fd >= 0 && FD_ISSET(g_rx.fd, &readfds))
-            receiveFileChunk();
+            receiveFileChunk(sock);
     
         // stdin
         if (FD_ISSET(STDIN_FILENO, &readfds))

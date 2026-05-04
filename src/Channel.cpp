@@ -1,8 +1,15 @@
 #include "Channel.hpp"
+#include "utils.hpp"
+
 #include <algorithm>
 #include <limits>
 #include <sstream>
 #include <ctime>
+
+bool Channel::NameEquals::operator()(Channel const* ch) const
+{
+    return irc::lowercaseStr(ch->getName()) == irc::lowercaseStr(_target);
+}
 
 Channel::Channel(std::string const &name) : _name(name) { }
 Channel::Channel(Client *creator, std::string const &name) : _name(name) { addOperator(creator); }
@@ -101,10 +108,14 @@ void Channel::makeTopicRestricted()				{ _modes._modes |= E_TOPIC_RESTRICT; }
 void Channel::makeUserLimit(size_t l)			{ _modes._modes |= E_USER_LIMIT; _modes._userLimit = l; }
 void Channel::makeKey(std::string const &key)	{ _modes._modes |= E_CHANNEL_KEY; _modes._key = key; }
 
-void Channel::broadcast(std::string const &msg, ServerState const& registry)
+void Channel::broadcast(std::string const &msg, ServerState const& registry, Client *cl)
 {
 	for (std::set<Client *>::iterator it = _members.begin(); it != _members.end(); ++it)
+	{
+		if (*it == cl)
+			continue;
 		(*it)->receiveMsg(msg, registry);
+	}
 }
 
 void Channel::setTopic(std::string const& topic, Client* cl) {

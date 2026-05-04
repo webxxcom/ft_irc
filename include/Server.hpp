@@ -34,12 +34,10 @@ private:
 	void handleTransferFd(int fd, int ev);
 	void handlePolls(std::vector<pollfd> const pollfds);
 
-    Server(const Server &);
 public:
 	Server(int ac, char *av[]);
 	
 	void startServer();
-
 };
 
 enum returned {

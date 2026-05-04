@@ -2,10 +2,17 @@
 
 #include <iostream>
 #include <sstream>
+#include <algorithm>
+
 #include "Exceptions.hpp"
 #include "Server.hpp"
+#include "utils.hpp"
 #include "Channel.hpp"
-#include <algorithm>
+
+bool Client::NickEquals::operator()(Client const *cl) const
+{
+    return irc::lowercaseStr(_target) == irc::lowercaseStr(cl->getNickname());
+}
 
 ClientState::ClientState()
 	: pass_ok(false)

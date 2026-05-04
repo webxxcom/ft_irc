@@ -42,27 +42,20 @@ void ServerState::pollfdRemove(int fd)
 
 bool ServerState::pollfdFindByFd(int fd, pollfd& out) const
 {
-	std::vector<pollfd>::const_iterator it = std::find_if(_pollfds.begin(), _pollfds.end(), CompareByFd(fd));
-	if (it != _pollfds.end())
+	for (std::vector<pollfd>::const_iterator it = _pollfds.begin(); it != _pollfds.end(); ++it)
 	{
-		out = *it;
-		return true;
+		if (it->fd == fd)
+		{
+			out = *it;
+			return true;
+		}
 	}
 	return false;
 }
 
-static std::string lowercaseStr(std::string const& str)
-{
-	std::string cpy;
-
-	for(size_t i = 0; i < str.size(); ++i)
-		cpy.push_back((char)std::tolower(str[i]));
-	return cpy;
-}
-
 Channel *ServerState::createChannel(Client *creator, std::string const &name)
 {
-	Channel *ch = new Channel(creator, lowercaseStr(name));
+	Channel *ch = new Channel(creator, name);
 
 	_channels.push_back(ch);
 	return ch;
@@ -70,12 +63,8 @@ Channel *ServerState::createChannel(Client *creator, std::string const &name)
 
 Channel *ServerState::channelFindByName(std::string const &name) const
 {
-	for (size_t i = 0; i < _channels.size(); ++i)
-	{
-		if (lowercaseStr(_channels[i]->getName()) == lowercaseStr(name))
-			return _channels[i];
-	}
-	return NULL;
+	std::vector<Channel *>::const_iterator it = std::find_if(_channels.begin(), _channels.end(), Channel::NameEquals(name));
+	return it != _channels.end() ? *it : NULL;
 }
 
 void ServerState::removeChannel(Channel *ch)
@@ -97,8 +86,8 @@ void ServerState::addTransferSession(TransferSession *ts)
 void ServerState::removeTransferSession(TransferSession *ts)
 {
 	pollfdRemove(ts->listenerFd);
-	// ! _transferSession.erase(std::find(_transferSession.begin(), _transferSession.end(), ts));
-	// ! delete ts;
+	_transferSession.erase(std::find(_transferSession.begin(), _transferSession.end(), ts));
+	delete ts;
 }
 
 std::set<Client *> ServerState::getUsersClientKnows(Client *cl) const
@@ -128,10 +117,8 @@ Client *ServerState::clientFindByFd(int fd) const
 
 Client *ServerState::clientFindByNickname(std::string const &name) const
 {
-	for(size_t i = 0; i < _clients.size(); ++i)
-		if (lowercaseStr(_clients[i]->getNickname()) == lowercaseStr(name))
-			return _clients[i];
-	return (NULL);
+	std::vector<Client *>::const_iterator it = std::find_if(_clients.begin(), _clients.end(), Client::NickEquals(name));
+	return it != _clients.end() ? *it : NULL;
 }
 
 void ServerState::clientChangesName(Client *cl, std::string const &newName) const
@@ -174,7 +161,7 @@ void ServerState::removeClientFromAllChannels(Client *cl)
 	}
 }
 
-void ServerState::clientIsReadyToReceiveMessage(Client *cl) const
+void ServerState::clientIsReadyToReceiveMessage(Client const* cl) const
 {
 	pollfd clientPollFd;
 	if (!pollfdFindByFd(cl->getFd(), clientPollFd))
@@ -191,14 +178,16 @@ void ServerState::clientDisconnects(Client *cl) const
 	cl->setPendingDisconnect(true);
 }
 
-int									ServerState::getPort() 				const 	{ return _port; }
-std::string const&					ServerState::getPassword() 			const 	{ return _password; }
-int 								ServerState::getServerSocketFd() 	const 	{ return _serverSocketfd; }
 std::vector<struct pollfd> const& 	ServerState::getPollFds() 			const	{ return _pollfds; }
+std::string const&					ServerState::getPassword() 			const 	{ return _password; }
+int									ServerState::getPort() 				const 	{ return _port; }
+int 								ServerState::getServerSocketFd() 	const 	{ return _serverSocketfd; }
+bool 								ServerState::isTransferFd(int fd) 	const	{ return transferSessionFindByFd(fd) != NULL; }
 
-void						ServerState::setPort(int port) { _port = port; }
-void						ServerState::setPassword(std::string const &password) { _password = password; }
-void 						ServerState::setServerSockerFd(int fd) { _serverSocketfd = fd; }
+// Modifiers
+void								ServerState::setPort(int port) { _port = port; }
+void								ServerState::setPassword(std::string const &password) { _password = password; }
+void 								ServerState::setServerSockerFd(int fd) { _serverSocketfd = fd; }
 
 TransferSession *ServerState::transferSessionFindByToken(std::string const &token) const
 {
@@ -219,7 +208,4 @@ TransferSession *ServerState::transferSessionFindByFd(int fd) const
 	return NULL;
 }
 
-bool ServerState::isTransferFd(int fd) const
-{
-    return transferSessionFindByFd(fd) != NULL;
-}
+

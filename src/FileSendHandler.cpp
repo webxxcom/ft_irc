@@ -118,7 +118,7 @@ void FileSendHandler::accept(Client *, TransferSession *ts) const
 
 void FileSendHandler::reject(Client *, TransferSession *ts) const
 {
-    ts->state = ts->REJECTED;
+    _registry.removeTransferSession(ts);
 }
 
 void FileSendHandler::sendChunk(TransferSession *ts) const

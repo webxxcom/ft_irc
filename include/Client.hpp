@@ -36,7 +36,7 @@ private:
 public:
 	struct NickEquals {
 		explicit NickEquals(std::string const& target) : _target(target) { };
-		bool operator()(Client const* cl) const { return cl->getNickname() == _target; }
+		bool operator()(Client const* cl) const;
 	public:
 		std::string _target;
 	};

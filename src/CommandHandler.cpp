@@ -25,6 +25,7 @@ void CommandHandler::setupCommands()
 	_commandMap["MODE"]     = &CommandHandler::handleMode;
 	_commandMap["PRIVMSG"]  = &CommandHandler::handlePrivmsg;
 	_commandMap["PING"]  	= &CommandHandler::handlePing;
+	_commandMap["KICK"]  	= &CommandHandler::handleKick;
 	_commandMap["QUIT"]  	= &CommandHandler::handleQuit;
 	_commandMap["PART"]  	= &CommandHandler::handlePart;
 	_commandMap["FILE"]  	= &CommandHandler::handleFile;
@@ -175,22 +176,14 @@ static bool isValidChannelMask(std::string const& mask)
 	return mask[0] == '#' && mask.size() > 2;
 }
 
-static std::string lowercaseStr(std::string const& str)
-{
-	std::string cpy;
-
-	for(size_t i = 0; i < str.size(); ++i)
-		cpy.push_back((char)std::tolower(str[i]));
-	return cpy;
-}
-
 // JOIN <channels> [<keys>]
 void CommandHandler::handleJoin(Client *client, std::stringstream &command)
 {
 	if (!client->isRegistered())
 		return _replyHandler.notRegistered(client);
 
-	std::string channelName, key;
+	std::string channelName;
+	std::string key;
 	command >> channelName >> key;
 
 	if (channelName.empty())
@@ -203,7 +196,6 @@ void CommandHandler::handleJoin(Client *client, std::stringstream &command)
 	while (!channelList.eof())
 	{
 		std::getline(channelList, channelName, ',');
-		channelName = lowercaseStr(channelName);
 		
 		if (!isValidChannelMask(channelName))
 		{
@@ -226,14 +218,12 @@ void CommandHandler::handleJoin(Client *client, std::stringstream &command)
 				_replyHandler.channelIsFull(client, channelName);
 				continue;
 			}
-			else
+			
+			std::getline(keyList, key, ',');
+			if (ch->getKey() != key)
 			{
-				std::getline(keyList, key, ',');
-				if (ch->getKey() != key)
-				{
-					_replyHandler.badChannelKey(client, channelName);
-					continue;
-				}
+				_replyHandler.badChannelKey(client, channelName);
+				continue;
 			}
 		}
 		std::string msg = 
@@ -272,7 +262,7 @@ void CommandHandler::handlePrivmsg(Client *client, std::stringstream &command)
     if (message.empty())
         return _replyHandler.noTextToSend(client);
 
-    std::string full = client->getFullUserPrefix()
+    std::string full = ":" + client->getFullUserPrefix()
         + " PRIVMSG " + target + " :" + message + "\r\n";
 
     if (target[0] == '#')
@@ -283,7 +273,7 @@ void CommandHandler::handlePrivmsg(Client *client, std::stringstream &command)
         if (!ch->hasMember(client))
             return _replyHandler.notOnChannel(client, target);
 
-        ch->broadcast(full, _registry);
+        ch->broadcast(full, _registry, client);
     }
     else
     {
@@ -301,7 +291,9 @@ void CommandHandler::handleKick(Client *client, std::stringstream &command)
 	if (!client->isRegistered())
 		return _replyHandler.notRegistered(client);
 
-	std::string channel, member, message;
+	std::string channel;
+	std::string member;
+	std::string message;
 	command >> channel >> member >> message;
 
 	if (channel[0] != '#' || channel.size() < 2)
@@ -402,8 +394,8 @@ void CommandHandler::handleTopic(Client *client, std::stringstream &command)
 		ch->broadcast(msg, _registry);
 	}
 	else {
-		std::string firstWord;
-		std::stringstream(newTopic);
+		std::string firstWord; 
+		std::stringstream(newTopic); // ?? what's this
 
 		newTopic >> firstWord;
 		if (ch->isTopicRestricted() && !ch->hasOperator(client))
@@ -420,7 +412,9 @@ void CommandHandler::handleMode(Client *client, std::stringstream &command)
 	if (!client->isRegistered())
 		return _replyHandler.notRegistered(client);
 
-	std::string first, flags, param;
+	std::string first;
+	std::string flags;
+	std::string param;
 	command >> first >> flags;
 
 	// Setting modes for a channel
@@ -441,7 +435,8 @@ void CommandHandler::handleMode(Client *client, std::stringstream &command)
 			if (flags[0] != '+' && flags[0] != '-')
 				return _replyHandler.needMoreParams(client, "MODE");
 
-			std::string replyFlags = std::string(1, flags[0]), replyParams;
+			std::string replyFlags = std::string(1, flags[0]);
+			std::string replyParams;
 			for (size_t i = 1; i < flags.size(); ++i)
 			{
 				switch (flags[i])
@@ -521,7 +516,7 @@ void CommandHandler::handleMode(Client *client, std::stringstream &command)
 				+ first + " " + replyFlags;
 			if (!replyParams.empty())
 				msg += " " + replyParams;
-			ch->broadcast(msg, _registry);
+			ch->broadcast(msg + "\r\n", _registry);
 		}
 		else
 			_replyHandler.channelModeIs(client, first, ch->getIrcModes());
@@ -548,7 +543,8 @@ void CommandHandler::handlePart(Client *client, std::stringstream &command)
 	if (!client->isRegistered())
 		return _replyHandler.notRegistered(client);
 
-	std::string channels, reason;
+	std::string channels;
+	std::string reason;
 	if (!(command >> channels))
 		return _replyHandler.needMoreParams(client, "PART");
 	std::getline(command, reason);
@@ -595,7 +591,8 @@ void CommandHandler::handleFile(Client *client, std::stringstream &command)
 
 	if (cmd == "SN")
 	{
-		std::string nick, filename;
+		std::string nick;
+		std::string filename;
 		command >> nick >> filename;
 
 		if (nick.empty() || filename.empty())
@@ -611,27 +608,24 @@ void CommandHandler::handleFile(Client *client, std::stringstream &command)
 
 	std::string token;
 	command >> token;
-	try
-	{
-		TransferSession *ts = _registry.transferSessionFindByToken(token);
-		if (cmd == "REQ")
-		{
-			// Do nothing client must reply
-		}
-		else if (cmd == "ACC")
-			_fileSendHandler.accept(client, ts);
-		else if (cmd == "REJ")
-			_fileSendHandler.reject(client, ts);
-		else
-			return _replyHandler.unknownCommand(client, token);
-	}
-	catch(const std::out_of_range& e)
-	{
+
+	TransferSession *ts = _registry.transferSessionFindByToken(token);
+	if (!ts)
 		return _replyHandler.badFileSessionToken(client, token);
+
+	if (cmd == "REQ")
+	{
+		// Do nothing, client must handle this message
 	}
+	else if (cmd == "ACC")
+		_fileSendHandler.accept(client, ts);
+	else if (cmd == "REJ")
+		_fileSendHandler.reject(client, ts);
+	else
+		return _replyHandler.unknownCommand(client, token);
 }
 
-Client *CommandHandler::clientLooksForUserInChannel(Client *client, std::string const &nick, Channel *ch) const
+Client *CommandHandler::clientLooksForUserInChannel(Client *client, std::string const &nick, Channel const* ch) const
 {
 	Client * target = _registry.clientFindByNickname(nick);
 	if (!target)
