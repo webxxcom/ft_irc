@@ -157,7 +157,11 @@ void Server::receiveClientData(Client *client)
         _commandHandler.handle(client);
 
         if (client->isRegistered() && !client->wasWelcomed())
+        if (client->isRegistered() && !client->isRegistrationChecked()) { //add flag if first time? otherwise gets welcome everytime
             _replyHandler.welcome(client);
+            std::find_if(_pollfds.begin(), _pollfds.end(), CompareByFd(client->getFd()))->events = POLLIN | POLLOUT;
+            client->changeRegistrationChecked(true);
+        }
     }
     else
     {
@@ -166,6 +170,8 @@ void Server::receiveClientData(Client *client)
         else
             std::cerr << "recv() error" << std::endl;
         disconnectClient(client);
+        disconnectClient(client);
+        return true;
     }
 }
 
@@ -173,11 +179,21 @@ void Server::messageClient(Client *client) {
     struct pollfd clientPollfd;
     if (!client || !_state.pollfdFindByFd(client->getFd(), clientPollfd))
         return ;
+bool Server::messageClient(Client *client) {
+    std::vector<struct pollfd>::iterator it = std::find_if(_pollfds.begin(), _pollfds.end(), CompareByFd(client->getFd()));
 
     std::queue<std::string> mssgsToSend = client->getInMssgs();
     if (mssgsToSend.empty()) {
         clientPollfd.events = POLLIN;
         return ;
+    std::queue<std::string> msgtoSend = client->getInMsg();
+    if (msgtoSend.empty()) {
+        it->events = POLLIN;
+        if (client->isPendingDisconnect()) {
+            disconnectClient(client);
+            return true;
+        }
+        return false;
     }
     std::string longMsg = "";
     while(!mssgsToSend.empty()) {
@@ -187,17 +203,26 @@ void Server::messageClient(Client *client) {
     }
     client->clearInMssgs();
     ssize_t bytessend = send(client->getFd(), longMsg.c_str(), longMsg.length(), MSG_NOSIGNAL);
+    client->clearinMsg();
+    ssize_t bytessend = send(client->getFd(), longMsg.c_str(), longMsg.length(), MSG_NOSIGNAL);
     if (bytessend > 0) {
         if (static_cast<size_t>(bytessend) < longMsg.length()) {
             std::string remainder = longMsg.substr(bytessend);
-            client->addInMsg(remainder);
-            clientPollfd.events = POLLIN | POLLOUT;
+            client->addinMsg(remainder);
+            it->events = POLLIN | POLLOUT;
+        }
+        else {
+            if (client->isPendingDisconnect()) {
+                disconnectClient(client);
+                return true;
+            }
+            it->events = POLLIN;
         }
     }
     else if (bytessend == -1) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            client->addInMsg(longMsg);
-            clientPollfd.events = POLLIN | POLLOUT;
+            client->addinMsg(longMsg);
+            it->events = POLLIN | POLLOUT;
         }
         else {
             std::cerr << "send() error" << std::endl;
@@ -264,4 +289,20 @@ void Server::handlePolls(std::vector<struct pollfd> const& pollfds)
                 messageClient(_state.clientFindByFd(pollfds[i].fd));
         }
     }
+}
+
+void Server::clientReadyReceive(Client *client) {
+    if (!client) //discuss checks with roman
+        return;
+    std::vector<struct pollfd>::iterator it = std::find_if(_pollfds.begin(), _pollfds.end(), CompareByFd(client->getFd()));
+    if (it != _pollfds.end())
+        it->events = POLLIN | POLLOUT;
+}
+
+void Server::clientReadyReceive(Client *client) {
+    if (!client) //discuss checks with roman
+        return;
+    std::vector<struct pollfd>::iterator it = std::find_if(_pollfds.begin(), _pollfds.end(), CompareByFd(client->getFd()));
+    if (it != _pollfds.end())
+        it->events = POLLIN | POLLOUT;
 }

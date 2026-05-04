@@ -41,8 +41,6 @@ public:
 	
 	void startServer();
 
-	// TEST FUNCTION
-	friend class Tester;
 };
 
 enum returned {

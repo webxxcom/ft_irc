@@ -144,6 +144,22 @@ void ReplyHandler::pong(Client* client, std::string const &token) const
     handle(RPL_PONG, client, token);
 }
 
+void ReplyHandler::badFileSessionToken(Client *client, std::string const &token) const
+{
+    handle(ERR_BADFILESESSTOKEN, client, token);
+}
+
+void ReplyHandler::fileIsAbsent(Client *client, std::string const &filename) const
+{
+    handle(ERR_FILEISABSENT, client, filename);
+}
+
+void ReplyHandler::pong(Client* client, std::string const &token) const
+{
+    handle(RPL_PONG, client, token);
+}
+
+//issue 1
 void ReplyHandler::welcome(Client *client) const
 {
     handle(RPL_WELCOME, client);
@@ -336,5 +352,6 @@ void ReplyHandler::handle(irc::ServerNotifyCodes code, Client *client, std::stri
     }
     msg << "\r\n";
     client->receiveMsg(msg.str());
-    //_server.clientIsReady(client);
+    _server.clientReadyReceive(client);
+
 }

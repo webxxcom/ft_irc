@@ -13,6 +13,7 @@ ClientState::ClientState()
 	, has_user(false)
 	, cap_negotiating(false)
 	, was_welcomed(false)
+	, pendingDisconnect(false)
 { }
 
 Client::Client() { }

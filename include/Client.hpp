@@ -8,10 +8,11 @@
 struct ClientState
 {
 	bool pass_ok;
-	bool has_nick;
-	bool has_user;
+    bool has_nick;
+    bool has_user;
 	bool cap_negotiating;
 	bool was_welcomed;
+    bool pendingDisconnect;
 
 	ClientState();
 };
@@ -50,26 +51,26 @@ public:
 	bool operator==(Client const& other) const;
 
 	// Getters
-	std::queue<std::string> const&	getOutMssgs()			const;
-	std::queue<std::string> const&	getInMssgs(void)		const;
-	std::string const&				getRecvBuffer()			const;
-	const std::string&              getNickname()			const;
-	std::string                     getIrcNickname()		const;
-	std::string                     getFullUserPrefix()		const;
-	const std::string&              getUsername()			const;
-	const std::string&              getRealname()			const;
-	int                             getFd()					const;
-	bool                            isRegistered()			const;
-	bool                            wasWelcomed()			const;
-	bool                            hasNickname()			const;
-	bool                            isCapNegotiating()		const;
-	bool                            hasPassword()			const;
+	std::queue<std::string> const&	getOutMssgs()				const;
+	std::queue<std::string> const&	getInMssgs(void)			const;
+	std::string const&				getRecvBuffer()				const;
+	std::string const&              getNickname()				const;
+	std::string const&              getUsername()				const;
+	std::string const&              getRealname()				const;
+	std::string                     getIrcNickname()			const;
+	std::string                     getFullUserPrefix()			const;
+	int                             getFd()						const;
+	bool                            isRegistered()				const;
+	bool                            wasWelcomed()				const;
+	bool                            hasNickname()				const;
+	bool                            isCapNegotiating()			const;
+	bool                            hasPassword()				const;
+	bool							isInvitedTo(Channel *ch)	const;
 
 	void clearInMssgs();
 	void clearOutMssgs(void);
 	void addInMsg(std::string remainder);
 
-	bool isInvitedTo(Channel *ch) const;
 	void addtoBuffer(std::string msg);
 
 	// Modifiers
@@ -79,10 +80,9 @@ public:
 	void setRealname(std::string const& username);
 	void setIsCapNegotiating(bool flag);
 	void setWasWelcomed(bool flag);
+	void setPendingDisconnect(bool flag);
 	void getsInvitedTo(Channel *ch);
-	void putIntoRecvBuffer(std::string const& data);
-	
-	void receiveMsg(std::string const& msg);
 
-	friend class Tester;
+	void putIntoRecvBuffer(std::string const& data);
+	void receiveMsg(std::string const& msg);
 } ;
