@@ -36,6 +36,7 @@ public:
 	void addClient(Client *cl);
 	void removeClient(Client *cl);
 	void removeFromAllChannels(Client *cl);
+	void setClientEvents(int fd, short events);
 
 	int							getPort() const;
 	std::string const&			getPassword() const;
@@ -49,6 +50,8 @@ public:
 	TransferSession *transferSessionFindByToken(std::string const& token) const;
 	TransferSession *transferSessionFindByFd(int fd) const;
 	bool			isTransferFd(int fd) const;
+
+	void clientReadyReceive(Client *client);
 
 private:
 	struct CompareByFd

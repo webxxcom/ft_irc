@@ -13,6 +13,7 @@ ClientState::ClientState()
 	, has_user(false)
 	, cap_negotiating(false)
 	, was_welcomed(false)
+    , pendingDisconnect(false)
 { }
 
 Client::Client() { }
@@ -44,9 +45,9 @@ Client::~Client() {
 
 bool Client::operator==(Client const &other) const { return _fd == other._fd; }
 
-std::queue<std::string> const&	Client::getOutMssgs()	const   { return _outMsg; }
-std::queue<std::string> const&	Client::getInMssgs(void) 			const 	{ return _inMsg; }
-std::string const&				Client::getRecvBuffer()			const   { return _buffer; }
+std::queue<std::string>&		Client::getOutMssgs()					{ return _outMsg; }
+std::queue<std::string>&		Client::getInMssgs(void) 			 	{ return _inMsg; }
+std::string&					Client::getRecvBuffer()					{ return _buffer; }
 std::string const&				Client::getNickname()      		const   { return _nickname; }
 std::string const&				Client::getUsername()      		const   { return _username; }
 std::string const&				Client::getRealname()      		const   { return _realname; }
@@ -119,3 +120,15 @@ void Client::receiveMsg(std::string const &msg) { _inMsg.push(msg); }
 void Client::clearOutMssgs(void) 					{ _outMsg = std::queue<std::string>(); }
 void Client::clearInMssgs(void) 					{ _inMsg = std::queue<std::string>(); }
 void Client::addInMsg(std::string remainder) 	{ _inMsg.push(remainder); }
+
+bool Client::isPendingDisconnect() {
+    return this->_state.pendingDisconnect;
+}
+
+void Client::setPendingDisconnect(bool status) {
+    this->_state.pendingDisconnect = status;
+}
+
+void Client::addClientPollInfo(struct pollfd fd) {
+	this->_pollInfo = fd;
+}

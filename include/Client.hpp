@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <poll.h>
 #include "ServerNotifyCodes.hpp"
 #include <queue>
 
@@ -12,6 +13,7 @@ struct ClientState
 	bool has_user;
 	bool cap_negotiating;
 	bool was_welcomed;
+    bool pendingDisconnect;
 
 	ClientState();
 };
@@ -30,6 +32,7 @@ private:
 	std::queue<std::string>         _outMsg;
 	std::queue<std::string>         _inMsg;
 	std::vector<Channel *>          _invitedTo;
+	struct pollfd					_pollInfo;
 	
 	Client();
 
@@ -50,9 +53,9 @@ public:
 	bool operator==(Client const& other) const;
 
 	// Getters
-	std::queue<std::string> const&	getOutMssgs()			const;
-	std::queue<std::string> const&	getInMssgs(void)		const;
-	std::string const&				getRecvBuffer()			const;
+	std::queue<std::string>&		getOutMssgs()			     ; //
+	std::queue<std::string>&		getInMssgs(void)		  	 ; //
+	std::string&					getRecvBuffer()				 ; //ask roman why changed, need to be modifiable
 	const std::string&              getNickname()			const;
 	std::string                     getIrcNickname()		const;
 	std::string                     getFullUserPrefix()		const;
@@ -71,6 +74,8 @@ public:
 
 	bool isInvitedTo(Channel *ch) const;
 	void addtoBuffer(std::string msg);
+	
+	bool isPendingDisconnect();
 
 	// Modifiers
 	void setNickname(std::string const& nickname);
@@ -81,6 +86,9 @@ public:
 	void setWasWelcomed(bool flag);
 	void getsInvitedTo(Channel *ch);
 	void putIntoRecvBuffer(std::string const& data);
+	void setPendingDisconnect(bool status);
+	void addClientPollInfo(struct pollfd fd);
+	void setReceiving(bool mode);
 	
 	void receiveMsg(std::string const& msg);
 

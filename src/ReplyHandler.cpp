@@ -335,6 +335,7 @@ void ReplyHandler::handle(irc::ServerNotifyCodes code, Client *client, std::stri
             break;
     }
     msg << "\r\n";
+    client->setReceiving(true);
     client->receiveMsg(msg.str());
-    //_server.clientIsReady(client);
+    std::cout << msg.str() << std::endl;
 }

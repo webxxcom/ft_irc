@@ -206,3 +206,12 @@ bool ServerState::isTransferFd(int fd) const
 {
     return transferSessionFindByFd(fd) != NULL;
 }
+
+void ServerState::setClientEvents(int fd, short events) {
+    for (size_t i = 0; i < _pollfds.size(); ++i) {
+        if (_pollfds[i].fd == fd) {
+            _pollfds[i].events = events;
+            return ;
+        }
+    }
+}
