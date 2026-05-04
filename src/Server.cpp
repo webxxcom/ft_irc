@@ -50,18 +50,18 @@ void Server::setupServer(void) {
     s.sin_port = htons(_state.getPort());
     struct pollfd serverfd;
     _state.setServerSockerFd(socket(AF_INET, SOCK_STREAM, 0));
-    if (_state.getServerSockerFd() == -1)
+    if (_state.getServerSocketFd() == -1)
         throw ServerErrorException("socket() error");
     int on = 1;
-    if (setsockopt(_state.getServerSockerFd(), SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) == -1)
+    if (setsockopt(_state.getServerSocketFd(), SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) == -1)
         throw ServerErrorException("setsockopt() error");
-    if (fcntl(_state.getServerSockerFd(), F_SETFL, O_NONBLOCK) == -1)
+    if (fcntl(_state.getServerSocketFd(), F_SETFL, O_NONBLOCK) == -1)
         throw ServerErrorException("fcntl() error");
-    if (bind(_state.getServerSockerFd(), (struct sockaddr*)&s, sizeof(s)) == -1)
+    if (bind(_state.getServerSocketFd(), (struct sockaddr*)&s, sizeof(s)) == -1)
         throw ServerErrorException("bind() error");
-    if (listen(_state.getServerSockerFd(), SOMAXCONN) == -1)
+    if (listen(_state.getServerSocketFd(), SOMAXCONN) == -1)
         throw ServerErrorException("listen() error");
-    serverfd.fd = _state.getServerSockerFd();
+    serverfd.fd = _state.getServerSocketFd();
     serverfd.events = POLLIN;
     serverfd.revents = 0;
     _state.pollfdAdd(serverfd);
@@ -71,7 +71,7 @@ void Server::acceptClient(void) {
     struct sockaddr_in c;
     memset(&c, 0, sizeof(c));
     socklen_t lenc = sizeof(c);
-    int clientSocketfd = accept(_state.getServerSockerFd(), (struct sockaddr*)&c, &lenc);
+    int clientSocketfd = accept(_state.getServerSocketFd(), (struct sockaddr*)&c, &lenc);
     if (clientSocketfd == -1) {
         std::cerr << "accept() error" << std::endl;
         return ;
@@ -165,7 +165,7 @@ void Server::receiveClientData(Client *client)
             std::cout << "Client disconnected" << std::endl;
         else
             std::cerr << "recv() error" << std::endl;
-        disconnectClient(client);
+        _state.clientDisconnects(client);
     }
 }
 
@@ -230,14 +230,13 @@ void Server::startServer(void) {
     }
 }
 
-void Server::handlePolls(std::vector<struct pollfd> const& pollfds)
+void Server::handlePolls(std::vector<pollfd> const pollfds)
 {
     for (std::size_t i = 0; i < pollfds.size(); ++i)
     {
         if (pollfds[i].revents == 0)
             continue;
 
-        // My file transfer addition
         int fd = pollfds[i].fd;
         if (_state.isTransferFd(fd))
             handleTransferFd(fd, pollfds[i].revents);

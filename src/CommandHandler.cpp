@@ -251,7 +251,8 @@ void CommandHandler::handlePrivmsg(Client *client, std::stringstream &command)
     if (!client->isRegistered())
         return _replyHandler.notRegistered(client);
 
-    std::string target, message;
+    std::string target;
+	std::string message;
 
     if (!(command >> target))
         return _replyHandler.noRecipient(client, "PRIVMSG");

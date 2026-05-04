@@ -159,7 +159,6 @@ void ReplyHandler::inviting(Client *inviter, Client *invitee, const std::string 
 {
 	// :<inviter>!<user>@<host> INVITE <invitee> :<channel>
     invitee->receiveMsg(":" + inviter->getFullUserPrefix() + " INVITE " + invitee->getNickname() + " :" + channelName + "\r\n", _registry);
-    // ! Not sure about username
 
 	// :server 341 <inviter> <invitee> <channel>
     handle(RPL_INVITING, inviter, invitee->getNickname() + " " + channelName);

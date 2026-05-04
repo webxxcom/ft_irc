@@ -39,10 +39,10 @@ public:
 	void				removeClient(Client *cl);
 	void				removeClientFromAllChannels(Client *cl);
 
-	int							getPort() const;
-	std::string const&			getPassword() const;
-	int							getServerSockerFd() const;
-	std::vector<pollfd> const&	getPollFds();
+	int							getPort() 			const;
+	int							getServerSocketFd()	const;
+	std::string const&			getPassword()		const;
+	std::vector<pollfd> const&	getPollFds()		const;
 
 	void 						setPort(int port);
 	void						setPassword(std::string const& password);
