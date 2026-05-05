@@ -10,7 +10,7 @@ Date: 4/6/2026
 #include "ServerNotifyCodes.hpp"
 #include <string>
 
-class Server;
+class ServerState;
 class Client;
 class Channel;
 
@@ -18,7 +18,7 @@ struct ChannelTopic;
 
 class ReplyHandler {
 public:
-    explicit ReplyHandler(Server &server);
+    explicit ReplyHandler(ServerState& state);
     ~ReplyHandler();
 
     void noNickSupplied(Client *client) const;
@@ -70,5 +70,6 @@ public:
 private:
     void handle(irc::ServerNotifyCodes code, Client *client, std::string const& extra = "") const;
 
-    Server &_server;
+    // Server &_server;
+    ServerState &_state;
 };

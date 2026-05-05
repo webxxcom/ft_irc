@@ -10,11 +10,11 @@ date: 4/6/2026
 #include <sstream>
 #include "Exceptions.hpp"
 #include "Channel.hpp"
-#include "Server.hpp"
+#include "ServerState.hpp"
 #include <iostream>
 #include <iomanip>
 
-ReplyHandler::ReplyHandler(Server &server) : _server(server) { }
+ReplyHandler::ReplyHandler(ServerState &state) : _state(state) { }
 ReplyHandler::~ReplyHandler() { }
 
 using namespace irc;
@@ -335,7 +335,6 @@ void ReplyHandler::handle(irc::ServerNotifyCodes code, Client *client, std::stri
             break;
     }
     msg << "\r\n";
-    client->setReceiving(true);
+    _state.setClientEvents(client->getFd(), POLLIN | POLLOUT);
     client->receiveMsg(msg.str());
-    std::cout << msg.str() << std::endl;
 }

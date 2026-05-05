@@ -1,4 +1,5 @@
 #include "Server.hpp"
+#include "ServerState.hpp"
 
 #include <iostream>
 #include <algorithm>
@@ -31,7 +32,7 @@ int Server::parseArgs(int ac, char *av[])
 Server::Server(int ac, char *av[])
     : _state()
     , _fileSendHandler(_state)
-    , _replyHandler(*this)
+    , _replyHandler(_state)
     , _commandHandler(_state, _replyHandler, _fileSendHandler)
 {
     int status = this->parseArgs(ac, av);
@@ -88,7 +89,6 @@ void Server::acceptClient(void) {
     Client* newClient = new Client(clientfd.fd);
     _state.pollfdAdd(clientfd);
     _state.addClient(newClient);
-    newClient->addClientPollInfo(clientfd);
 }
 
 void Server::disconnectClient(Client *client)
@@ -188,8 +188,7 @@ void Server::messageClient(Client *client) {
 
     std::queue<std::string> mssgsToSend = client->getInMssgs();
     if (mssgsToSend.empty()) {
-        std::cout << "EMPTY" <<std::endl;
-        client->setReceiving(false);
+        _state.setClientEvents(client->getFd(), POLLIN);
         if (client->isPendingDisconnect())
             disconnectClient(client);
         return ;
@@ -200,13 +199,12 @@ void Server::messageClient(Client *client) {
         mssgsToSend.pop();
     }
     client->clearInMssgs();
-    std::cout << "sending.." << longMsg << std::endl;
     ssize_t bytessend = send(client->getFd(), longMsg.c_str(), longMsg.length(), MSG_NOSIGNAL);
     if (bytessend > 0) {
         if (static_cast<size_t>(bytessend) < longMsg.length()) {
             std::string remainder = longMsg.substr(bytessend);
             client->addInMsg(remainder);
-            client->setReceiving(true);
+            _state.setClientEvents(client->getFd(), POLLIN | POLLOUT);
         }
         else if (static_cast<size_t>(bytessend) == longMsg.length() && client->isPendingDisconnect())
             disconnectClient(client);
@@ -214,7 +212,7 @@ void Server::messageClient(Client *client) {
     else if (bytessend == -1) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
             client->addInMsg(longMsg);
-            client->setReceiving(true);
+            _state.setClientEvents(client->getFd(), POLLIN | POLLOUT);
         }
         else {
             std::cerr << "send() error" << std::endl;
@@ -279,7 +277,6 @@ void Server::handlePolls(std::vector<struct pollfd> const& pollfds)
                 }
             }
             if (pollfds[i].revents & POLLOUT){
-                std::cout << "got here" << std::endl;
                 messageClient(_state.clientFindByFd(pollfds[i].fd));
             }
         }

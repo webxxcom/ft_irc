@@ -364,9 +364,10 @@ void CommandHandler::handleTopic(Client *client, std::stringstream &command)
 	std::string channelName, newTopic;
 	if (command.peek() == EOF)
 		return _replyHandler.needMoreParams(client, "TOPIC");
-	std::getline(command, channelName, ' ');
+
+	command >> channelName;
 	if (channelName[0] != '#')
-		return _replyHandler.needMoreParams(client, "TOPIC");
+		return _replyHandler.noSuchChannel(client, channelName);
 
 	Channel *ch = _registry.channelFindByName(channelName);
 	if (!ch)
@@ -399,8 +400,17 @@ void CommandHandler::handleTopic(Client *client, std::stringstream &command)
 		msg = ":" + client->getFullUserPrefix() + " TOPIC " + channelName + " :" + newTopic + "\r\n"; 
 		ch->broadcast(msg);
 	}
-	else { //maybe irc allows wihtout : if topic is set to one word
-		
+	else {
+		std::string firstWord;
+		std::stringstream stream(newTopic);
+
+		stream >> firstWord;
+		if (ch->isTopicRestricted() && !ch->hasOperator(client))
+			return _replyHandler.chanOpPrivsNeeded(client, channelName);
+		ch->setTopic(firstWord, client);
+		std::string msg;
+		msg = ":" + client->getFullUserPrefix() + " TOPIC " + channelName + " :" + firstWord + "\r\n"; 
+		ch->broadcast(msg);
 	}
 }
 

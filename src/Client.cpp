@@ -128,7 +128,3 @@ bool Client::isPendingDisconnect() {
 void Client::setPendingDisconnect(bool status) {
     this->_state.pendingDisconnect = status;
 }
-
-void Client::addClientPollInfo(struct pollfd fd) {
-	this->_pollInfo = fd;
-}

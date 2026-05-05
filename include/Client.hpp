@@ -32,7 +32,6 @@ private:
 	std::queue<std::string>         _outMsg;
 	std::queue<std::string>         _inMsg;
 	std::vector<Channel *>          _invitedTo;
-	struct pollfd					_pollInfo;
 	
 	Client();
 
@@ -87,8 +86,6 @@ public:
 	void getsInvitedTo(Channel *ch);
 	void putIntoRecvBuffer(std::string const& data);
 	void setPendingDisconnect(bool status);
-	void addClientPollInfo(struct pollfd fd);
-	void setReceiving(bool mode);
 	
 	void receiveMsg(std::string const& msg);
 
