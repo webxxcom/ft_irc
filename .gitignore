@@ -45,3 +45,4 @@ irc
 *.log
 client.log
 server.log
+rb

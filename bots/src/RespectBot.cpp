@@ -89,15 +89,15 @@ void RespectBot::processInvite(std::string const& line)
 void RespectBot::processPrivmsg(std::stringstream &ss)
 {
     std::string token;
-    std::string channelName;
+    std::string channel;
 
-    if (!(ss >> channelName))
+    if (!(ss >> channel))
         return ;
 
-    respectMap::iterator it = respectCounter.find(channelName);
+    respectMap::iterator it = respectCounter.find(channel);
     if (it == respectCounter.end())
     {
-        std::cerr << ("For some reason i was not able to find channel `" + channelName + "'\n");
+        std::cerr << ("For some reason i was not able to find channel `" + channel + "'\n");
         return ;
     }
 
@@ -116,9 +116,11 @@ void RespectBot::processPrivmsg(std::stringstream &ss)
         if (!(ss >> token))
             return;
 
+        int val = respectCounter[channel][token];
+
         std::stringstream out;
-        int val = respectCounter[channelName][token];
-        out << "PRIVMSG " + channelName + " :User `" + token + "' has " << val << " points of respect\r\n";
+        out << "PRIVMSG " + channel + " :User `" + token + "' has " << val << " points of respect\r\n";
+
         sendDataToServer(out.str());
     }
     else if (token == "+rep" || token == "-rep")
