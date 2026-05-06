@@ -150,7 +150,7 @@ void CommandHandler::handleNick(Client *client, std::stringstream& command)
 	if (!isValidNick(nick))
 		return _replyHandler.erroneusNick(client, nick);
 
-	if (_registry.clientFindByNickname(nick))
+	if (_registry.clientFindConnectedByNickname(nick))
 		_replyHandler.nicknameAlreadyInUse(client, nick);
 	else
 		_registry.clientChangesName(client, nick);
@@ -277,7 +277,7 @@ void CommandHandler::handlePrivmsg(Client *client, std::stringstream &command)
     }
     else
     {
-        Client *cl = _registry.clientFindByNickname(target);
+        Client *cl = _registry.clientFindConnectedByNickname(target);
         if (!cl)
             return _replyHandler.noSuchNick(client, target);
 
@@ -342,7 +342,7 @@ void CommandHandler::handleInvite(Client *client, std::stringstream &command)
 	if ((ch->getModes() & Channel::E_INVITE_ONLY) && !ch->hasOperator(client))
 		return _replyHandler.chanOpPrivsNeeded(client, channelName);
 
-	Client *invitee = _registry.clientFindByNickname(nickname);
+	Client *invitee = _registry.clientFindConnectedByNickname(nickname);
 	if (!invitee)
 		return _replyHandler.noSuchNick(client, nickname);
 
@@ -598,7 +598,7 @@ void CommandHandler::handleFile(Client *client, std::stringstream &command)
 		if (nick.empty() || filename.empty())
 			return _replyHandler.needMoreParams(client, "SEND");
 		
-		Client *cl = _registry.clientFindByNickname(nick);
+		Client *cl = _registry.clientFindConnectedByNickname(nick);
 		if (!cl)
 			return _replyHandler.noSuchNick(client, nick);
 		if (!fileExists(filename))
@@ -627,7 +627,7 @@ void CommandHandler::handleFile(Client *client, std::stringstream &command)
 
 Client *CommandHandler::clientLooksForUserInChannel(Client *client, std::string const &nick, Channel const* ch) const
 {
-	Client * target = _registry.clientFindByNickname(nick);
+	Client * target = _registry.clientFindConnectedByNickname(nick);
 	if (!target)
 	{
 		_replyHandler.noSuchNick(client, nick);

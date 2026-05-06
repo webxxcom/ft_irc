@@ -115,6 +115,12 @@ Client *ServerState::clientFindByFd(int fd) const
 	return (NULL);
 }
 
+Client *ServerState::clientFindConnectedByNickname(std::string const &name) const
+{
+    std::vector<Client *>::const_iterator it = std::find_if(_clients.begin(), _clients.end(), Client::NickEquals(name));
+	return (it != _clients.end() && !(*it)->isPendingDisconnect()) ? *it : NULL;
+}
+
 Client *ServerState::clientFindByNickname(std::string const &name) const
 {
 	std::vector<Client *>::const_iterator it = std::find_if(_clients.begin(), _clients.end(), Client::NickEquals(name));

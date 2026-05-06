@@ -32,8 +32,9 @@ public:
 	std::set<Client *>	getUsersClientKnows(Client *cl)								const;
 	Client*				clientFindByFd(int fd)										const;
 	Client*				clientFindByNickname(std::string const& name)				const;
+	Client*				clientFindConnectedByNickname(std::string const& name)		const;
 	void				clientChangesName(Client *cl, std::string const& newName)	const;
-	void				clientIsReadyToReceiveMessage(Client const* cl)					const;
+	void				clientIsReadyToReceiveMessage(Client const* cl)				const;
 	void				clientDisconnects(Client *cl)								const;
 	void				addClient(Client *cl);
 	void				removeClient(Client *cl);

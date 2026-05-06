@@ -187,12 +187,12 @@ void Server::messageClient(Client *client) {
     while(!mssgsToSend.empty())
     {
         longMsg += mssgsToSend.front();
-        std::cout << "Client " << client->getNickname() + " receives: " << mssgsToSend.front();
         mssgsToSend.pop();
     }
     client->clearInMssgs();
 
     ssize_t bytessend = ::send(client->getFd(), longMsg.c_str(), longMsg.length(), MSG_NOSIGNAL);
+    std::cout << "Client " << client->getNickname() + " receives: " << longMsg.substr(0, bytessend);
     if (bytessend > 0) {
         if (static_cast<size_t>(bytessend) < longMsg.length()) {
             client->addInMsg(longMsg.substr(bytessend));

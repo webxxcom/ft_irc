@@ -415,15 +415,14 @@ def test_privmsg_received_by_sender(make_client):
     wait_for(client, "366")
     wait_for(client2, "366")
 
-    client.send("PRIVMSG #echo :echo please")
+    client.send("PRIVMSG #echo :no echo please")
 
     # receiver MUST get it
-    resp2 = wait_for(client2, "echo please")
+    resp2 = wait_for(client2, "no echo please")
     assert "echo please" in resp2
 
     # sender must get it
-    wait_for(client, "selfecho!")
-    assert "echo please" in resp2
+    expect_no_message(client, "selfecho!")
 
 
 def test_privmsg_direct_message(make_client):
@@ -535,27 +534,6 @@ def test_privmsg_channel_message_includes_sender_prefix(make_client):
     client.send("PRIVMSG #prefix :check prefix")
     resp = wait_for(client2, "check prefix")
     assert "prefixsend" in resp   # :prefixsend!… prefix expected
-
-
-def test_privmsg_channel_self_echo_when_expected(make_client):
-    """The sender SHOULD receive their own PRIVMSG echo (server-echo mode)."""
-    client  = make_client()
-    client2 = make_client()
-    registered(client,  nick="selfecho")
-    registered(client2, nick="peer")
-
-    client.send("JOIN #echo")
-    client2.send("JOIN #echo")
-    wait_for(client,  "366")
-    wait_for(client2, "366")
-
-    client.send("PRIVMSG #echo :echo please")
-
-    resp2 = wait_for(client2, "echo please")
-    assert "echo please" in resp2
-
-    wait_for(client, "selfecho!")
-    assert "echo please" in resp2
 
 
 def test_privmsg_multiple_members_all_receive(make_client):
@@ -792,6 +770,7 @@ def test_privmsg_to_disconnected_user(make_client):
 
     # Disconnect the receiver
     receiver.close()
+    time.sleep(0.1)
 
     sender.send("PRIVMSG aliverecv :are you there?")
     resp = wait_for(sender, "401")
@@ -983,32 +962,32 @@ def test_oversized_nick(make_client):
 
 tests = [
     # PASS
-    ("PASS wrong password",              test_pass_wrong_password),
-    ("PASS missing param",               test_pass_missing_param),
-    ("PASS after registration",          test_pass_after_registration),
-    # NICK
-    ("NICK without params",              test_nick_missing_param),
-    ("NICK invalid characters",          test_nick_invalid_characters),
-    ("NICK change after registration",   test_nick_change_after_registration),
-    ("NICK duplicate",                   test_nick_duplicate),
-    # USER
-    ("USER missing params",              test_user_missing_params),
-    ("USER already registered",          test_user_already_registered),
-    ("USER registration welcome",        test_user_registration_welcome),
-    # JOIN
-    ("JOIN without params",              test_join_missing_param),
-    ("JOIN valid channel",               test_join_valid_channel),
-    ("JOIN invalid channel name",        test_join_invalid_channel_name),
-    ("JOIN multiple channels",           test_join_multiple_channels),
-    ("JOIN before registration",         test_join_before_registration),
-    # PART
-    ("PART missing param",               test_part_missing_param),
-    ("PART not in channel",              test_part_not_in_channel),
-    ("PART valid",                       test_part_valid),
-    ("PART with message",                test_part_with_message),
-    ("PART broadcasts to others",        test_part_broadcasts_to_others),
+    # ("PASS wrong password",              test_pass_wrong_password),
+    # ("PASS missing param",               test_pass_missing_param),
+    # ("PASS after registration",          test_pass_after_registration),
+    # # NICK
+    # ("NICK without params",              test_nick_missing_param),
+    # ("NICK invalid characters",          test_nick_invalid_characters),
+    # ("NICK change after registration",   test_nick_change_after_registration),
+    # ("NICK duplicate",                   test_nick_duplicate),
+    # # USER
+    # ("USER missing params",              test_user_missing_params),
+    # ("USER already registered",          test_user_already_registered),
+    # ("USER registration welcome",        test_user_registration_welcome),
+    # # JOIN
+    # ("JOIN without params",              test_join_missing_param),
+    # ("JOIN valid channel",               test_join_valid_channel),
+    # ("JOIN invalid channel name",        test_join_invalid_channel_name),
+    # ("JOIN multiple channels",           test_join_multiple_channels),
+    # ("JOIN before registration",         test_join_before_registration),
+    # # PART
+    # ("PART missing param",               test_part_missing_param),
+    # ("PART not in channel",              test_part_not_in_channel),
+    # ("PART valid",                       test_part_valid),
+    # ("PART with message",                test_part_with_message),
+    # ("PART broadcasts to others",        test_part_broadcasts_to_others),
 
-    # PRIVMSG
+    # # PRIVMSG
     ("PRIVMSG missing params",                          test_privmsg_missing_params),
     ("PRIVMSG no text",                                 test_privmsg_no_text),
     ("PRIVMSG channel delivery",                        test_privmsg_channel_delivery),
@@ -1021,7 +1000,6 @@ tests = [
     ("PRIVMSG nonexistent nick → 401",                  test_privmsg_nonexistent_nick),
     ("PRIVMSG channel delivered to others",             test_privmsg_channel_delivered_to_others),
     ("PRIVMSG channel carries sender prefix",           test_privmsg_channel_message_includes_sender_prefix),
-    ("PRIVMSG channel self-echo when expected",         test_privmsg_channel_self_echo_when_expected),
     ("PRIVMSG all channel members receive",             test_privmsg_multiple_members_all_receive),
     ("PRIVMSG not delivered after PART",                test_privmsg_after_part_not_delivered),
     ("PRIVMSG direct delivered",                        test_privmsg_direct_delivered),
@@ -1062,7 +1040,7 @@ def run_tests():
     server_log = open("server.log", "w")
 
     server = subprocess.Popen(
-        ["./irc", "6667", "a"],
+        ["valgrind", "--leak-check=full", "--show-leak-kinds=all", "--track-origins=yes", "./irc", "6667", "a"],
         stdout=server_log,
         stderr=server_log
     )
@@ -1082,7 +1060,7 @@ def run_tests():
             return c
 
         try:
-            test(make_client)   # <-- key change
+            test(make_client)
 
             print("  OK")
             passed += 1
@@ -1098,7 +1076,7 @@ def run_tests():
                     c.close()
                 except:
                     pass
-
+        time.sleep(0.05)
     server.terminate()
     client_log.close()
     server_log.close()

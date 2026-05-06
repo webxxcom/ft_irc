@@ -92,7 +92,7 @@ void Client::putIntoRecvBuffer(std::string const& data)
 
 		_outMsg.push(singleMsg);
 
-		std::cout << "single received msg: " << singleMsg << '\n';
+		std::cout << "Server received: " << singleMsg << '\n';
 		_buffer.erase(0, endMsg + 2);
 	}
 }
