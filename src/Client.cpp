@@ -116,10 +116,10 @@ void Client::setNickname(std::string const& nickname)
 	_state.has_nick = true;
 }
 
-void Client::receiveMsg(std::string const &msg) { _inMsg.push(msg); }
+void Client::receiveMsg(std::string const &msg) 	{ _inMsg.push(msg); }
 void Client::clearOutMssgs(void) 					{ _outMsg = std::queue<std::string>(); }
 void Client::clearInMssgs(void) 					{ _inMsg = std::queue<std::string>(); }
-void Client::addInMsg(std::string remainder) 	{ _inMsg.push(remainder); }
+void Client::addInMsg(std::string remainder) 		{ _inMsg.push(remainder); }
 
 bool Client::isPendingDisconnect() {
     return this->_state.pendingDisconnect;

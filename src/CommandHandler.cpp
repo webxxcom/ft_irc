@@ -240,6 +240,12 @@ void CommandHandler::handleJoin(Client *client, std::stringstream &command)
 			":" + client->getFullUserPrefix() + " JOIN " + channelName + "\r\n";
 		ch->addMember(client);
 		ch->broadcast(msg);
+		if (!ch->getTopic()._text.empty()) {
+			_replyHandler.currentTopic(client, channelName, ch->getTopic()._text);
+			_replyHandler.currentTopicInfo(client, channelName, ch->getTopic());
+		}
+		if (ch->getTopic()._text.empty())
+			_replyHandler.topicEmpty(client, channelName);
 		_replyHandler.nameReply(client, ch);
 		_replyHandler.endOfNames(client, channelName);
 	}
@@ -271,7 +277,7 @@ void CommandHandler::handlePrivmsg(Client *client, std::stringstream &command)
     if (message.empty())
         return _replyHandler.noTextToSend(client);
 
-    std::string full = client->getFullUserPrefix()
+    std::string full = ":" + client->getFullUserPrefix() //!!! anezka, added ":"
         + " PRIVMSG " + target + " :" + message + "\r\n";
 
     if (target[0] == '#')
@@ -282,7 +288,7 @@ void CommandHandler::handlePrivmsg(Client *client, std::stringstream &command)
         if (!ch->hasMember(client))
             return _replyHandler.notOnChannel(client, target);
 
-        ch->broadcast(full);
+        ch->broadcast(full, client);
     }
     else
     {
@@ -399,6 +405,7 @@ void CommandHandler::handleTopic(Client *client, std::stringstream &command)
 		std::string msg;
 		msg = ":" + client->getFullUserPrefix() + " TOPIC " + channelName + " :" + newTopic + "\r\n"; 
 		ch->broadcast(msg);
+		_replyHandler.currentTopic(client, channelName, currentTopic._text);
 	}
 	else {
 		std::string firstWord;
@@ -411,6 +418,7 @@ void CommandHandler::handleTopic(Client *client, std::stringstream &command)
 		std::string msg;
 		msg = ":" + client->getFullUserPrefix() + " TOPIC " + channelName + " :" + firstWord + "\r\n"; 
 		ch->broadcast(msg);
+		_replyHandler.currentTopic(client, channelName, currentTopic._text);
 	}
 }
 

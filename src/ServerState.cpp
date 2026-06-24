@@ -178,6 +178,7 @@ int									ServerState::getPort() 				const 	{ return _port; }
 std::string const&					ServerState::getPassword() 			const 	{ return _password; }
 int 								ServerState::getServerSockerFd() 	const 	{ return _serverSocketfd; }
 std::vector<struct pollfd> const& 	ServerState::getPollFds() 					{ return _pollfds; }
+std::vector<Client *>				ServerState::getClients()					{ return _clients; }
 
 void						ServerState::setPort(int port) { _port = port; }
 void						ServerState::setPassword(std::string const &password) { _password = password; }

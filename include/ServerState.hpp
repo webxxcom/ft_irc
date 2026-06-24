@@ -42,6 +42,7 @@ public:
 	std::string const&			getPassword() const;
 	int							getServerSockerFd() const;
 	std::vector<pollfd> const&	getPollFds();
+	std::vector<Client *> 		getClients();
 
 	void 						setPort(int port);
 	void						setPassword(std::string const& password);

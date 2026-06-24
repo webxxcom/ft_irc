@@ -3,6 +3,7 @@
 #include <limits>
 #include <sstream>
 #include <ctime>
+#include <iostream>
 
 Channel::Channel(std::string const &name) : _name(name) { }
 Channel::Channel(Client *creator, std::string const &name) : _name(name) { addOperator(creator); }
@@ -13,7 +14,7 @@ std::set<Client *> const&			Channel::getMembers() 				const 	{ return _members; 
 std::set<Client *> const&			Channel::getOperators() 			const 	{ return _operators; }
 std::vector<std::string> const&		Channel::getMessages() 				const 	{ return _messages; }
 unsigned int 						Channel::getModes() 				const 	{ return _modes._modes; }
-const ChannelTopic&					Channel::getTopic()					const 	{ return _topic; }
+ChannelTopic const&					Channel::getTopic()					const 	{ return _topic; }
 size_t								Channel::getUserLimit()				const 	{ return _modes._userLimit; }
 std::string const&					Channel::getKey() 					const 	{ return _modes._key; }
 bool								Channel::isInviteOnly()				const 	{ return _modes._modes & E_INVITE_ONLY; }
@@ -111,10 +112,13 @@ void Channel::makeKey(std::string const &key)
 	_modes._key = key;
 }
 
-void Channel::broadcast(std::string const &msg)
+void Channel::broadcast(std::string const &msg, Client *skipClient)
 {
-	for (std::set<Client *>::iterator it = _members.begin(); it != _members.end(); ++it)
+	for (std::set<Client *>::iterator it = _members.begin(); it != _members.end(); ++it) {
+		if (*it == skipClient)
+			continue;
 		(*it)->receiveMsg(msg);
+	}
 }
 
 void Channel::setTopic(std::string const& topic, Client* cl) {

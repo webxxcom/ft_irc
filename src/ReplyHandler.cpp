@@ -210,7 +210,10 @@ void ReplyHandler::currentTopic(Client* client, std::string const &channelName, 
 }
 
 void ReplyHandler::currentTopicInfo(Client* client, std::string const& channelName, ChannelTopic const& topic) const {
-    std::string extra = channelName + " " + topic._setby + " " + topic._time;
+    std::stringstream ssTime;
+    ssTime << topic._time;
+    std::string strTime = ssTime.str();
+    std::string extra = channelName + " " + topic._setby + " " + strTime;
     handle(RPL_TOPICWHOTIME, client, extra);
 }
 

@@ -229,6 +229,18 @@ void Server::startServer(void) {
     setupServer();
 
     while (g_serverRunning) {
+        std::vector<Client *> const& clients = _state.getClients();
+        for (size_t i = 0; i < clients.size(); ++i) {
+            Client* cl = clients[i];
+            if (cl && !cl->isPendingDisconnect()) {
+                if (!cl->getInMssgs().empty()) {
+                    _state.setClientEvents(cl->getFd(), POLLIN | POLLOUT);
+                } else {
+                    _state.setClientEvents(cl->getFd(), POLLIN);
+                }
+            }
+        }
+
         int status = _state.poll();
 
         if (status == -1 && g_serverRunning == 0)
@@ -261,7 +273,6 @@ void Server::handlePolls(std::vector<struct pollfd> const& pollfds)
                 }
                 else
                 {
-                    //set flag first?
                     disconnectClient(_state.clientFindByFd(pollfds[i].fd));
                     continue ;
                 }
@@ -272,11 +283,12 @@ void Server::handlePolls(std::vector<struct pollfd> const& pollfds)
                     acceptClient();
                 else {
                     Client *cl = _state.clientFindByFd(pollfds[i].fd);
-                    if (!cl->isPendingDisconnect())
+                    if (cl && !cl->isPendingDisconnect())
                         receiveClientData(cl);
                 }
+                // continue ;
             }
-            if (pollfds[i].revents & POLLOUT){
+            if (pollfds[i].revents & POLLOUT){ // maybe check !_state.getServerSockerFd()
                 messageClient(_state.clientFindByFd(pollfds[i].fd));
             }
         }
