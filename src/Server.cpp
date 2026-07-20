@@ -166,6 +166,19 @@ void Server::receiveClientData(Client *client)
         }
         _commandHandler.handle(client);
 
+
+        //zmena zde>
+        std::vector<Client *> const& allClients = _state.getClients();
+        for (size_t i = 0; i < allClients.size(); ++i) {
+            if (allClients[i] && !allClients[i]->getInMssgs().empty()) {
+                _state.setClientEvents(allClients[i]->getFd(), POLLIN | POLLOUT);
+            }
+        }
+
+        if (client->isRegistered() && !client->wasWelcomed())
+            _replyHandler.welcome(client);
+        // 
+
         if (client->isRegistered() && !client->wasWelcomed())
                     _replyHandler.welcome(client);
     }
@@ -206,8 +219,13 @@ void Server::messageClient(Client *client) {
             client->addInMsg(remainder);
             _state.setClientEvents(client->getFd(), POLLIN | POLLOUT);
         }
-        else if (static_cast<size_t>(bytessend) == longMsg.length() && client->isPendingDisconnect())
-            disconnectClient(client);
+        //zmena zde>
+        else if (static_cast<size_t>(bytessend) == longMsg.length()) {
+            _state.setClientEvents(client->getFd(), POLLIN);
+            if (client->isPendingDisconnect())
+                disconnectClient(client);
+        }
+        //    
     }
     else if (bytessend == -1) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -229,17 +247,18 @@ void Server::startServer(void) {
     setupServer();
 
     while (g_serverRunning) {
-        std::vector<Client *> const& clients = _state.getClients();
-        for (size_t i = 0; i < clients.size(); ++i) {
-            Client* cl = clients[i];
-            if (cl && !cl->isPendingDisconnect()) {
-                if (!cl->getInMssgs().empty()) {
-                    _state.setClientEvents(cl->getFd(), POLLIN | POLLOUT);
-                } else {
-                    _state.setClientEvents(cl->getFd(), POLLIN);
-                }
-            }
-        }
+        // std::vector<Client *> const& clients = _state.getClients();
+        // for (size_t i = 0; i < clients.size(); ++i) {
+        //     Client* cl = clients[i];
+        //     if (cl && !cl->isPendingDisconnect()) {
+        //         if (!cl->getInMssgs().empty()) {
+        //             _state.setClientEvents(cl->getFd(), POLLIN | POLLOUT);
+        //         } else {
+        //             _state.setClientEvents(cl->getFd(), POLLIN);
+        //         }
+        //     }
+        // }
+        //zmena zde>
 
         int status = _state.poll();
 
@@ -251,7 +270,7 @@ void Server::startServer(void) {
     }
 }
 
-void Server::handlePolls(std::vector<struct pollfd> const& pollfds)
+void Server::handlePolls(std::vector<struct pollfd> pollfds)
 {
     for (std::size_t i = 0; i < pollfds.size(); ++i)
     {

@@ -88,6 +88,6 @@ public:
 	void setPendingDisconnect(bool status);
 	
 	void receiveMsg(std::string const& msg);
-
+	
 	friend class Tester;
 } ;

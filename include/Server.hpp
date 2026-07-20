@@ -32,7 +32,7 @@ private:
 	void messageClient(Client *client);
 	void disconnectClient(Client *client);
 	void handleTransferFd(int fd, int ev);
-	void handlePolls(std::vector<struct pollfd> const& pollfds);
+	void handlePolls(std::vector<struct pollfd> pollfds);
 	void finishServer();
 
 	Server(const Server &);

@@ -5,6 +5,7 @@
 #include <set>
 #include <ctime>
 #include "Client.hpp"
+#include "ServerState.hpp"
 
 class Client;
 
