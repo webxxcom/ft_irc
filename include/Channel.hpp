@@ -84,5 +84,5 @@ public:
 
     void setTopic(std::string const& topic, Client* cl);
 
-    void broadcast(std::string const &msg, ServerState const &registry, Client *cl = NULL);
+    void broadcast(std::string const &msg, ServerState &registry, Client *cl = NULL);
 };

@@ -40,17 +40,23 @@ void ServerState::pollfdRemove(int fd)
 	}
 }
 
-bool ServerState::pollfdFindByFd(int fd, pollfd& out) const
+bool ServerState::hasClientWithFd(int fd) const
 {
 	for (std::vector<pollfd>::const_iterator it = _pollfds.begin(); it != _pollfds.end(); ++it)
 	{
 		if (it->fd == fd)
-		{
-			out = *it;
 			return true;
-		}
 	}
 	return false;
+}
+
+void ServerState::pollfdSetFdEvents(int fd, short events)
+{
+    for (std::vector<pollfd>::iterator it = _pollfds.begin(); it != _pollfds.end(); ++it)
+	{
+		if (it->fd == fd)
+			it->events = events;
+	}
 }
 
 Channel *ServerState::createChannel(Client *creator, std::string const &name)
@@ -127,7 +133,7 @@ Client *ServerState::clientFindByNickname(std::string const &name) const
 	return it != _clients.end() ? *it : NULL;
 }
 
-void ServerState::clientChangesName(Client *cl, std::string const &newName) const
+void ServerState::clientChangesName(Client *cl, std::string const &newName)
 {
 	if (cl->hasNickname())
 	{
@@ -167,13 +173,9 @@ void ServerState::removeClientFromAllChannels(Client *cl)
 	}
 }
 
-void ServerState::clientIsReadyToReceiveMessage(Client const* cl) const
+void ServerState::clientIsReadyToReceiveMessage(Client const* cl)
 {
-	pollfd clientPollFd;
-	if (!pollfdFindByFd(cl->getFd(), clientPollFd))
-		return ;
-
-	clientPollFd.events = POLLIN | POLLOUT;
+	pollfdSetFdEvents(cl->getFd(), POLLIN | POLLOUT);
 }
 
 void ServerState::clientDisconnects(Client *cl) const

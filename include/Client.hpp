@@ -82,5 +82,5 @@ public:
 	void getsInvitedTo(Channel *ch);
 
 	void putIntoRecvBuffer(std::string const& data);
-	void receiveMsg(std::string const& msg, ServerState const& state);
+	void receiveMsg(std::string const& msg, ServerState &state);
 } ;

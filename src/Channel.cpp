@@ -108,7 +108,7 @@ void Channel::makeTopicRestricted()				{ _modes._modes |= E_TOPIC_RESTRICT; }
 void Channel::makeUserLimit(size_t l)			{ _modes._modes |= E_USER_LIMIT; _modes._userLimit = l; }
 void Channel::makeKey(std::string const &key)	{ _modes._modes |= E_CHANNEL_KEY; _modes._key = key; }
 
-void Channel::broadcast(std::string const &msg, ServerState const& registry, Client *cl)
+void Channel::broadcast(std::string const &msg, ServerState &registry, Client *cl)
 {
 	for (std::set<Client *>::iterator it = _members.begin(); it != _members.end(); ++it)
 	{

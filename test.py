@@ -962,30 +962,30 @@ def test_oversized_nick(make_client):
 
 tests = [
     # PASS
-    # ("PASS wrong password",              test_pass_wrong_password),
-    # ("PASS missing param",               test_pass_missing_param),
-    # ("PASS after registration",          test_pass_after_registration),
-    # # NICK
-    # ("NICK without params",              test_nick_missing_param),
-    # ("NICK invalid characters",          test_nick_invalid_characters),
-    # ("NICK change after registration",   test_nick_change_after_registration),
-    # ("NICK duplicate",                   test_nick_duplicate),
-    # # USER
-    # ("USER missing params",              test_user_missing_params),
-    # ("USER already registered",          test_user_already_registered),
-    # ("USER registration welcome",        test_user_registration_welcome),
-    # # JOIN
-    # ("JOIN without params",              test_join_missing_param),
-    # ("JOIN valid channel",               test_join_valid_channel),
-    # ("JOIN invalid channel name",        test_join_invalid_channel_name),
-    # ("JOIN multiple channels",           test_join_multiple_channels),
-    # ("JOIN before registration",         test_join_before_registration),
-    # # PART
-    # ("PART missing param",               test_part_missing_param),
-    # ("PART not in channel",              test_part_not_in_channel),
-    # ("PART valid",                       test_part_valid),
-    # ("PART with message",                test_part_with_message),
-    # ("PART broadcasts to others",        test_part_broadcasts_to_others),
+    ("PASS wrong password",              test_pass_wrong_password),
+    ("PASS missing param",               test_pass_missing_param),
+    ("PASS after registration",          test_pass_after_registration),
+    # NICK
+    ("NICK without params",              test_nick_missing_param),
+    ("NICK invalid characters",          test_nick_invalid_characters),
+    ("NICK change after registration",   test_nick_change_after_registration),
+    ("NICK duplicate",                   test_nick_duplicate),
+    # USER
+    ("USER missing params",              test_user_missing_params),
+    ("USER already registered",          test_user_already_registered),
+    ("USER registration welcome",        test_user_registration_welcome),
+    # JOIN
+    ("JOIN without params",              test_join_missing_param),
+    ("JOIN valid channel",               test_join_valid_channel),
+    ("JOIN invalid channel name",        test_join_invalid_channel_name),
+    ("JOIN multiple channels",           test_join_multiple_channels),
+    ("JOIN before registration",         test_join_before_registration),
+    # PART
+    ("PART missing param",               test_part_missing_param),
+    ("PART not in channel",              test_part_not_in_channel),
+    ("PART valid",                       test_part_valid),
+    ("PART with message",                test_part_with_message),
+    ("PART broadcasts to others",        test_part_broadcasts_to_others),
 
     # # PRIVMSG
     ("PRIVMSG missing params",                          test_privmsg_missing_params),

@@ -97,7 +97,7 @@ void Client::putIntoRecvBuffer(std::string const& data)
 	}
 }
 
-void Client::receiveMsg(std::string const &msg, ServerState const& state)
+void Client::receiveMsg(std::string const &msg, ServerState& state)
 {
 	_inMsg.push(msg);
 	state.clientIsReadyToReceiveMessage(this);

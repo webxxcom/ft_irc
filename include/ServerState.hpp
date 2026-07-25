@@ -20,7 +20,8 @@ public:
 	int				poll();
 	void			pollfdAdd(struct pollfd fd);
 	void 			pollfdRemove(int fd);
-	bool			pollfdFindByFd(int fd, pollfd &out) const;
+	void			pollfdSetFdEvents(int fd, short events);
+	bool			hasClientWithFd(int fd) const;
 
 	Channel*		createChannel(Client *cl, std::string const& name);
 	Channel*		channelFindByName(std::string const& name) const;
@@ -33,8 +34,8 @@ public:
 	Client*				clientFindByFd(int fd)										const;
 	Client*				clientFindByNickname(std::string const& name)				const;
 	Client*				clientFindConnectedByNickname(std::string const& name)		const;
-	void				clientChangesName(Client *cl, std::string const& newName)	const;
-	void				clientIsReadyToReceiveMessage(Client const* cl)				const;
+	void				clientChangesName(Client *cl, std::string const& newName);
+	void				clientIsReadyToReceiveMessage(Client const* cl);
 	void				clientDisconnects(Client *cl)								const;
 	void				addClient(Client *cl);
 	void				removeClient(Client *cl);

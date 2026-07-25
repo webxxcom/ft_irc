@@ -170,14 +170,14 @@ void Server::receiveClientData(Client *client)
 }
 
 void Server::messageClient(Client *client) {
-    struct pollfd clientPollfd;
-    if (!client || !_state.pollfdFindByFd(client->getFd(), clientPollfd))
+    // Return if client's fd is not in the server's state
+    if (!client || !_state.hasClientWithFd(client->getFd()))
         return ;
 
     std::queue<std::string> mssgsToSend = client->getInMssgs();
     if (mssgsToSend.empty())
     {
-        clientPollfd.events = POLLIN;
+        _state.pollfdSetFdEvents(client->getFd(), POLLIN);
         if (client->isPendingDisconnect())
             disconnectClient(client);
         return;
@@ -196,10 +196,10 @@ void Server::messageClient(Client *client) {
     if (bytessend > 0) {
         if (static_cast<size_t>(bytessend) < longMsg.length()) {
             client->addInMsg(longMsg.substr(bytessend));
-            clientPollfd.events = POLLIN | POLLOUT;
+            _state.pollfdSetFdEvents(client->getFd(), POLLIN | POLLOUT);
         }
         else {
-            clientPollfd.events = POLLIN;
+            _state.pollfdSetFdEvents(client->getFd(), POLLIN);
             if (client->isPendingDisconnect())
                 disconnectClient(client);
         }
@@ -207,7 +207,7 @@ void Server::messageClient(Client *client) {
     else if (bytessend == -1) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
             client->addInMsg(longMsg);
-            clientPollfd.events = POLLIN | POLLOUT;
+            _state.pollfdSetFdEvents(client->getFd(), POLLIN | POLLOUT);
         }
         else {
             std::cerr << "send() error" << std::endl;

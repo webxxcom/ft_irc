@@ -395,9 +395,9 @@ void CommandHandler::handleTopic(Client *client, std::stringstream &command)
 	}
 	else {
 		std::string firstWord; 
-		std::stringstream(newTopic); // ?? what's this
+		std::stringstream a(newTopic); // ?? what's this
 
-		newTopic >> firstWord;
+		a >> firstWord;
 		if (ch->isTopicRestricted() && !ch->hasOperator(client))
 			return _replyHandler.chanOpPrivsNeeded(client, channelName);
 		ch->setTopic(firstWord, client);
