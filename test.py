@@ -1,4 +1,5 @@
 import socket
+import struct
 import time
 import subprocess
 
@@ -40,7 +41,10 @@ def wait_for(client, expected, timeout=1.0):
     data = ""
 
     while time.time() < end:
-        chunk = client.recv()
+        try:
+            chunk = client.recv()
+        except Exception:
+            continue
         if chunk:
             data += chunk
 
@@ -58,7 +62,10 @@ def wait_for_all(client, expected_list, timeout=1.0):
     data = ""
 
     while time.time() < end:
-        chunk = client.recv()
+        try:
+            chunk = client.recv()
+        except Exception:
+            continue
         if chunk:
             data += chunk
 
@@ -615,11 +622,13 @@ def test_privmsg_direct_not_echoed_to_sender(make_client):
     sender.send("PRIVMSG dmnoechopeer :whisper")
     wait_for(receiver, "whisper")   # receiver gets it
 
+    got_echo = True
     try:
-        resp = wait_for(sender, "whisper", timeout=0.5)
-        assert "whisper" not in resp
-    except TimeoutError:
-        pass
+        wait_for(sender, "whisper", timeout=0.5)
+    except AssertionError:
+        got_echo = False
+
+    assert not got_echo, "sender should not receive their own PRIVMSG echo"
 
 
 def test_privmsg_direct_to_self(make_client):
@@ -808,61 +817,67 @@ def test_privmsg_channel_message_after_rejoin(make_client):
 # TOPIC
 # ===========================================================================
 
-def test_topic_missing_param(client):
+def test_topic_missing_param(make_client):
     """TOPIC with no argument → ERR_NEEDMOREPARAMS (461)."""
+    client = make_client()
     registered(client)
-    
+
     client.send("TOPIC")
     resp = client.recv()
     assert "461" in resp
 
 
-def test_topic_not_in_channel(client):
+def test_topic_not_in_channel(make_client):
     """Setting a topic in a channel the client hasn't joined → ERR_NOTONCHANNEL (442)."""
+    client = make_client()
     registered(client)
-    
+
     client.send("TOPIC #notjoined :Some topic")
     resp = client.recv()
     assert "442" in resp
 
 
-def test_topic_set_and_get(client):
+def test_topic_set_and_get(make_client):
     """Client sets a topic; querying it should return the same text (332)."""
+    client = make_client()
     registered(client)
-    
+
     client.send("JOIN #topicroom")
-    
+
     client.send("TOPIC #topicroom :Hello World Topic")
-    
+
     client.send("TOPIC #topicroom")
     resp = client.recv()
     assert ("332" in resp) or ("Hello World Topic" in resp)
 
 
-def test_topic_broadcast(client, client2):
+def test_topic_broadcast(make_client):
     """When a topic changes, other channel members are notified."""
+    client = make_client()
+    client2 = make_client()
     registered(client, nick="topicsetter")
     registered(client2, nick="topicwatcher")
-    
-    
+
+
     client.send("JOIN #topicbroadcast")
     client2.send("JOIN #topicbroadcast")
-    
-    
+
+
 
     client.send("TOPIC #topicbroadcast :New topic!")
     resp = client2.recv()
     assert "New topic!" in resp
 
 
-def test_topic_clear(client):
+def test_topic_clear(make_client):
     """Setting an empty topic should clear it."""
+    client = make_client()
     registered(client)
-    
+
     client.send("JOIN #cleartopic")
-    
+
     client.send("TOPIC #cleartopic :initial")
-    
+
     client.send("TOPIC #cleartopic :")
     resp = client.recv()
     # Server should accept the command without error
@@ -957,6 +972,308 @@ def test_oversized_nick(make_client):
 
 
 # ===========================================================================
+# INVITE
+# ===========================================================================
+
+def test_invite_delivers_and_replies(make_client):
+    """INVITE notifies the invitee and replies RPL_INVITING (341) to the inviter."""
+    inviter = make_client()
+    invitee = make_client()
+    registered(inviter, nick="invsend")
+    registered(invitee, nick="invrecv")
+
+    inviter.send("JOIN #invitesmoke")
+    wait_for(inviter, "366")
+
+    inviter.send("INVITE invrecv #invitesmoke")
+
+    resp_invitee = wait_for(invitee, "INVITE")
+    assert "INVITE" in resp_invitee
+    assert "#invitesmoke" in resp_invitee
+
+    resp_inviter = wait_for(inviter, "341")
+    assert "341" in resp_inviter
+
+
+def test_invite_nonexistent_nick(make_client):
+    """INVITE to an unknown nick → ERR_NOSUCHNICK (401)."""
+    inviter = make_client()
+    registered(inviter, nick="invghost")
+
+    inviter.send("JOIN #ghostinvite")
+    wait_for(inviter, "366")
+
+    inviter.send("INVITE nosuchuser #ghostinvite")
+    resp = wait_for(inviter, "401")
+    assert "401" in resp
+
+
+# ===========================================================================
+# MODE
+# ===========================================================================
+
+def test_mode_query_no_flags(make_client):
+    """MODE <channel> with no flags returns the current modes (324)."""
+    client = make_client()
+    registered(client, nick="modequery")
+
+    client.send("JOIN #modequery")
+    wait_for(client, "366")
+
+    client.send("MODE #modequery")
+    resp = wait_for(client, "324")
+    assert "324" in resp
+    assert "#modequery" in resp
+
+
+def test_mode_non_operator_rejected(make_client):
+    """A non-operator setting a channel mode → ERR_CHANOPRIVSNEEDED (482)."""
+    op = make_client()
+    other = make_client()
+    registered(op, nick="modeop")
+    registered(other, nick="modenotop")
+
+    op.send("JOIN #modeperm")
+    wait_for(op, "366")
+    other.send("JOIN #modeperm")
+    wait_for(other, "366")
+
+    other.send("MODE #modeperm +i")
+    resp = wait_for(other, "482")
+    assert "482" in resp
+
+
+def test_mode_invite_only_blocks_join(make_client):
+    """+i set by the operator blocks JOIN from a non-invited client (473)."""
+    op = make_client()
+    other = make_client()
+    registered(op, nick="inviteop")
+    registered(other, nick="invitenope")
+
+    op.send("JOIN #inviteonly")
+    wait_for(op, "366")
+
+    op.send("MODE #inviteonly +i")
+    wait_for(op, "MODE #inviteonly +i")
+
+    other.send("JOIN #inviteonly")
+    resp = wait_for(other, "473")
+    assert "473" in resp
+
+
+def test_mode_invite_only_allows_invited_join(make_client):
+    """After INVITE, a client can JOIN an invite-only (+i) channel."""
+    op = make_client()
+    other = make_client()
+    registered(op, nick="inviteop2")
+    registered(other, nick="inviteyes")
+
+    op.send("JOIN #inviteallowed")
+    wait_for(op, "366")
+
+    op.send("MODE #inviteallowed +i")
+    wait_for(op, "MODE #inviteallowed +i")
+
+    op.send("INVITE inviteyes #inviteallowed")
+    wait_for(other, "INVITE")
+
+    other.send("JOIN #inviteallowed")
+    resp = wait_for(other, "366")
+    assert "366" in resp
+
+
+def test_mode_channel_key_join(make_client):
+    """+k sets a channel key; JOIN with the wrong key is rejected (475), correct key succeeds."""
+    op = make_client()
+    wrong = make_client()
+    right = make_client()
+    registered(op, nick="keyop")
+    registered(wrong, nick="keywrong")
+    registered(right, nick="keyright")
+
+    op.send("JOIN #keychan")
+    wait_for(op, "366")
+
+    op.send("MODE #keychan +k secret")
+    wait_for(op, "MODE #keychan +k")
+
+    wrong.send("JOIN #keychan wrongkey")
+    resp = wait_for(wrong, "475")
+    assert "475" in resp
+
+    right.send("JOIN #keychan secret")
+    resp = wait_for(right, "366")
+    assert "366" in resp
+
+
+def test_mode_user_limit_join(make_client):
+    """+l 1 limits a channel to 1 member; a second JOIN attempt is rejected (471)."""
+    op = make_client()
+    blocked = make_client()
+    registered(op, nick="limitop")
+    registered(blocked, nick="limitblocked")
+
+    op.send("JOIN #limitchan")
+    wait_for(op, "366")
+
+    op.send("MODE #limitchan +l 1")
+    wait_for(op, "MODE #limitchan +l")
+
+    blocked.send("JOIN #limitchan")
+    resp = wait_for(blocked, "471")
+    assert "471" in resp
+
+
+def test_mode_grant_operator(make_client):
+    """+o <nick> grants operator status; the broadcast reflects the change."""
+    op = make_client()
+    promoted = make_client()
+    registered(op, nick="opgrantop")
+    registered(promoted, nick="opgrantnew")
+
+    op.send("JOIN #opgrant")
+    wait_for(op, "366")
+    promoted.send("JOIN #opgrant")
+    wait_for(promoted, "366")
+
+    op.send("MODE #opgrant +o opgrantnew")
+    resp = wait_for(op, "+o")
+    assert "+o" in resp
+    assert "opgrantnew" in resp
+
+
+# ===========================================================================
+# KICK
+# ===========================================================================
+
+def test_kick_removes_member(make_client):
+    """An operator can KICK a member; the member is removed and notified."""
+    op = make_client()
+    target = make_client()
+    registered(op, nick="kickop")
+    registered(target, nick="kicktarget")
+
+    op.send("JOIN #kicksmoke")
+    wait_for(op, "366")
+    target.send("JOIN #kicksmoke")
+    wait_for(target, "366")
+
+    op.send("KICK #kicksmoke kicktarget :bye")
+
+    resp_target = wait_for(target, "KICK")
+    assert "KICK" in resp_target
+    assert "#kicksmoke" in resp_target
+
+    # Target should no longer be treated as a member of the channel.
+    target.send("PRIVMSG #kicksmoke :should not be delivered")
+    resp = wait_for(target, "442")
+    assert "442" in resp
+
+
+def test_kick_non_operator_rejected(make_client):
+    """A non-operator attempting KICK → ERR_CHANOPRIVSNEEDED (482)."""
+    op = make_client()
+    bystander = make_client()
+    target = make_client()
+    registered(op, nick="kickop2")
+    registered(bystander, nick="kickbystander")
+    registered(target, nick="kicktarget2")
+
+    op.send("JOIN #kickperm")
+    wait_for(op, "366")
+    bystander.send("JOIN #kickperm")
+    wait_for(bystander, "366")
+    target.send("JOIN #kickperm")
+    wait_for(target, "366")
+
+    bystander.send("KICK #kickperm kicktarget2 :no")
+    resp = wait_for(bystander, "482")
+    assert "482" in resp
+
+
+# ===========================================================================
+# QUIT
+# ===========================================================================
+
+def test_quit_does_not_crash_server(make_client):
+    """QUIT should be accepted without crashing or wedging the server.
+
+    NOTE: CommandHandler::handleQuit is currently a stub - it does not
+    actually disconnect the client or notify channel peers. This is a
+    smoke test only (server stays alive and responsive); it does not
+    verify real disconnect semantics, since those aren't implemented yet.
+    """
+    quitter = make_client()
+    registered(quitter, nick="quitter")
+
+    quitter.send("JOIN #quittest")
+    wait_for(quitter, "366")
+
+    quitter.send("QUIT :bye")
+
+    other = make_client()
+    registered(other, nick="afterquit")
+    other.send("PING pingtoken")
+    resp = wait_for(other, "PONG")
+    assert "PONG" in resp
+
+
+# ===========================================================================
+# Regression tests
+# ===========================================================================
+
+def test_topic_set_without_leading_colon(make_client):
+    """TOPIC <channel> <text-without-colon> must actually set the topic.
+
+    Regression test: a stringstream-shadowing bug in the no-colon branch of
+    handleTopic previously caused the topic to silently be set to an empty
+    string instead of the text that was sent.
+    """
+    client = make_client()
+    registered(client, nick="nocolon")
+
+    client.send("JOIN #nocolontopic")
+    wait_for(client, "366")
+
+    client.send("TOPIC #nocolontopic someword")
+
+    client.send("TOPIC #nocolontopic")
+    resp = wait_for(client, "332")
+    assert "332" in resp
+    assert "someword" in resp
+
+
+def test_client_hangup_does_not_starve_other_clients(make_client):
+    """A client whose connection resets abruptly (RST, not a clean close)
+    must not prevent the server from continuing to service other clients.
+
+    Regression test: Server::handlePolls used to swap its handling of
+    POLLERR/POLLHUP/POLLNVAL - a broken *server* socket was silently
+    ignored, while a broken *client* fd caused the whole dispatch pass to
+    `return` early, abandoning every other ready fd in that poll() batch.
+    Since the dead fd kept reporting the same error on every subsequent
+    poll(), this permanently starved any client registered after it.
+    """
+    victim = make_client()
+    bystander = make_client()
+
+    registered(victim, nick="hangupvictim")
+    registered(bystander, nick="hangupbystander")
+
+    # Force an abortive close (RST) instead of a graceful FIN, so the
+    # server observes POLLERR/POLLHUP rather than a normal recv() == 0.
+    victim.sock.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack('ii', 1, 0))
+    victim.sock.close()
+
+    time.sleep(0.2)
+
+    # The bystander, connected after the victim, must still be served.
+    bystander.send("PING resetcheck")
+    resp = wait_for(bystander, "PONG")
+    assert "PONG" in resp
+
+
+# ===========================================================================
 # Test registry
 # ===========================================================================
 
@@ -1033,6 +1350,30 @@ tests = [
     ("TOPIC set and get",                test_topic_set_and_get),
     ("TOPIC broadcast",                  test_topic_broadcast),
     ("TOPIC clear",                      test_topic_clear),
+
+    # INVITE
+    ("INVITE delivers and replies 341",  test_invite_delivers_and_replies),
+    ("INVITE nonexistent nick → 401",    test_invite_nonexistent_nick),
+
+    # MODE
+    ("MODE query no flags → 324",        test_mode_query_no_flags),
+    ("MODE non-operator rejected → 482", test_mode_non_operator_rejected),
+    ("MODE +i blocks JOIN → 473",        test_mode_invite_only_blocks_join),
+    ("MODE +i allows invited JOIN",      test_mode_invite_only_allows_invited_join),
+    ("MODE +k channel key JOIN",         test_mode_channel_key_join),
+    ("MODE +l user limit JOIN → 471",    test_mode_user_limit_join),
+    ("MODE +o grants operator",          test_mode_grant_operator),
+
+    # KICK
+    ("KICK removes member",              test_kick_removes_member),
+    ("KICK non-operator rejected → 482", test_kick_non_operator_rejected),
+
+    # QUIT
+    ("QUIT does not crash server",       test_quit_does_not_crash_server),
+
+    # Regression tests
+    ("TOPIC set without leading colon",          test_topic_set_without_leading_colon),
+    ("Client hangup does not starve others",     test_client_hangup_does_not_starve_other_clients),
 ]
 
 def run_tests():

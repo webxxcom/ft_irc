@@ -245,12 +245,12 @@ void Server::handlePolls(std::vector<pollfd> const pollfds)
             if (pollfds[i].revents & (POLLERR | POLLHUP | POLLNVAL))
             {
                 if (pollfds[i].fd == _state.getServerSocketFd())
+                    throw ServerErrorException("server socket error");
+                else
                 {
                     _state.clientDisconnects(_state.clientFindByFd(pollfds[i].fd));
                     continue ;
                 }
-                else
-                    return ;
             }
             if (pollfds[i].revents & POLLIN)
             {

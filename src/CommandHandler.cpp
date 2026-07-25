@@ -394,7 +394,7 @@ void CommandHandler::handleTopic(Client *client, std::stringstream &command)
 		ch->broadcast(msg, _registry);
 	}
 	else {
-		std::string firstWord; 
+		std::string firstWord;
 		std::stringstream a(newTopic); // ?? what's this
 
 		a >> firstWord;
