@@ -215,5 +215,3 @@ TransferSession *ServerState::transferSessionFindByFd(int fd) const
 			return _transferSession[i];
 	return NULL;
 }
-
-

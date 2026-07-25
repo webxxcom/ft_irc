@@ -3,14 +3,16 @@
 #include <string>
 #include <vector>
 #include <set>
+#include <ctime>
 #include "Client.hpp"
+#include "ServerState.hpp"
 
 class Client;
 
 struct ChannelTopic{
 	std::string					_text;
 	std::string					_setby;
-	std::string					_time;
+	std::time_t					_time;
 } ;
 
 class Channel {
@@ -58,7 +60,7 @@ public:
 	size_t							getUserLimit() 		const;
 	bool							isInviteOnly()		const;
 	std::string const&				getKey()			const;
-	const ChannelTopic&				getTopic()			const;
+	ChannelTopic const&				getTopic()			const;
 	bool							isTopicRestricted()	const;
 	bool							isEmpty()			const;
 	bool							hasUserLimit()		const;

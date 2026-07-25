@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <poll.h>
 #include "ServerNotifyCodes.hpp"
 #include <queue>
 

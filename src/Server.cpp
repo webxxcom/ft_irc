@@ -1,4 +1,5 @@
 #include "Server.hpp"
+#include "ServerState.hpp"
 
 #include <iostream>
 #include <algorithm>
@@ -85,14 +86,16 @@ void Server::acceptClient(void) {
     clientfd.fd = clientSocketfd;
     clientfd.events = POLLIN | POLLOUT;
     clientfd.revents = 0;
+    Client* newClient = new Client(clientfd.fd);
     _state.pollfdAdd(clientfd);
-
-    _state.addClient(new Client(clientfd.fd));
+    _state.addClient(newClient);
 }
 
 void Server::disconnectClient(Client *client)
 {
     // empty the buffer
+    if (!client)
+        return ;
     _state.removeClient(client);
 }
 
@@ -153,7 +156,7 @@ void Server::receiveClientData(Client *client)
     {
         temp[bytesread] = '\0';
         client->putIntoRecvBuffer(temp);
-        
+
         _commandHandler.handle(client);
 
         if (client->isRegistered() && !client->wasWelcomed())
@@ -214,6 +217,7 @@ void Server::messageClient(Client *client) {
             disconnectClient(client);
         }
     }
+    return ;
 }
 
 void Server::startServer(void) {
@@ -240,7 +244,7 @@ void Server::handlePolls(std::vector<pollfd> const pollfds)
         int fd = pollfds[i].fd;
         if (_state.isTransferFd(fd))
             handleTransferFd(fd, pollfds[i].revents);
-        else 
+        else
         {
             if (pollfds[i].revents & (POLLERR | POLLHUP | POLLNVAL))
             {
@@ -256,11 +260,15 @@ void Server::handlePolls(std::vector<pollfd> const pollfds)
             {
                 if (pollfds[i].fd == _state.getServerSocketFd())
                     acceptClient();
-                else
-                    receiveClientData(_state.clientFindByFd(pollfds[i].fd));
+                else {
+                    Client *cl = _state.clientFindByFd(pollfds[i].fd);
+                    if (cl && !cl->isPendingDisconnect())
+                        receiveClientData(cl);
+                }
             }
-            if (pollfds[i].revents & POLLOUT)
+            if (pollfds[i].revents & POLLOUT) {
                 messageClient(_state.clientFindByFd(pollfds[i].fd));
+            }
         }
     }
 }

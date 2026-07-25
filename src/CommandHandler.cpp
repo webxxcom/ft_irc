@@ -390,7 +390,7 @@ void CommandHandler::handleTopic(Client *client, std::stringstream &command)
 
 		ch->setTopic(newTopic, client);
 		std::string msg;
-		msg = ":" + client->getFullUserPrefix() + " TOPIC " + channelName + " :" + newTopic + "\r\n"; 
+		msg = ":" + client->getFullUserPrefix() + " TOPIC " + channelName + " :" + newTopic + "\r\n";
 		ch->broadcast(msg, _registry);
 	}
 	else {
@@ -402,7 +402,7 @@ void CommandHandler::handleTopic(Client *client, std::stringstream &command)
 			return _replyHandler.chanOpPrivsNeeded(client, channelName);
 		ch->setTopic(firstWord, client);
 		std::string msg;
-		msg = ":" + client->getFullUserPrefix() + " TOPIC " + channelName + " :" + firstWord + "\r\n"; 
+		msg = ":" + client->getFullUserPrefix() + " TOPIC " + channelName + " :" + firstWord + "\r\n";
 		ch->broadcast(msg, _registry);
 	}
 }

@@ -5,6 +5,7 @@
 #include <limits>
 #include <sstream>
 #include <ctime>
+#include <iostream>
 
 bool Channel::NameEquals::operator()(Channel const* ch) const
 {
@@ -20,7 +21,7 @@ std::set<Client *> const&			Channel::getMembers() 				const 	{ return _members; 
 std::set<Client *> const&			Channel::getOperators() 			const 	{ return _operators; }
 std::vector<std::string> const&		Channel::getMessages() 				const 	{ return _messages; }
 unsigned int 						Channel::getModes() 				const 	{ return _modes._modes; }
-const ChannelTopic&					Channel::getTopic()					const 	{ return _topic; }
+ChannelTopic const&					Channel::getTopic()					const 	{ return _topic; }
 size_t								Channel::getUserLimit()				const 	{ return _modes._userLimit; }
 std::string const&					Channel::getKey() 					const 	{ return _modes._key; }
 bool								Channel::isInviteOnly()				const 	{ return _modes._modes & E_INVITE_ONLY; }
@@ -122,5 +123,5 @@ void Channel::setTopic(std::string const& topic, Client* cl) {
 	this->_topic._text = topic;
 	this->_topic._setby = cl->getNickname();
 	std::time_t currentTime = std::time(NULL);
-	this->_topic._time = currentTime; // ???????? convert from time_t to string 
+	this->_topic._time = currentTime;
 }
