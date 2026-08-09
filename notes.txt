@@ -1,0 +1,18 @@
+PRIVMSG:
+- had to add ":" before username for netcat to work 
+- in weechat theres echo messages, had to modify broadcast function - now changed only for PRIVMSG, check where else echoes might be issue
+
+JOIN:
+- modified JOIN command - added printing of topic
+- is 324 actually sent? not visible in netcat, not sure how weechat works?? ask Roman
+- in weechat if without # - no such channel, is that correct? ask Roman
+
+
+- client gets welcome, even when registration is not correctly done?? ask Roman
+
+TOPIC:
+- got mixed signals about ":"
+
+MODE:
+- when changed no message
+
