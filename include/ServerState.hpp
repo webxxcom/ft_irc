@@ -17,29 +17,29 @@ public:
 	ServerState();
 	~ServerState();
 
-	int				poll();
-	void			pollfdAdd(struct pollfd fd);
-	void 			pollfdRemove(int fd);
-	void			pollfdSetFdEvents(int fd, short events);
-	bool			hasClientWithFd(int fd) const;
+	int							poll();
+	void						pollfdAdd(struct pollfd fd);
+	void 						pollfdRemove(int fd);
+	void						pollfdSetFdEvents(int fd, short events);
+	bool						hasClientWithFd(int fd) const;
 
-	Channel*		createChannel(Client *cl, std::string const& name);
-	Channel*		channelFindByName(std::string const& name) const;
-	void			removeChannel(Channel *ch);
+	Channel*					createChannel(Client *cl, std::string const& name);
+	Channel*					channelFindByName(std::string const& name) const;
+	void						removeChannel(Channel *ch);
 
-	void addTransferSession(TransferSession *ts);
-	void removeTransferSession(TransferSession *ts);
+	void						addTransferSession(TransferSession *ts);
+	void						removeTransferSession(TransferSession *ts);
 
-	std::set<Client *>	getUsersClientKnows(Client *cl)								const;
-	Client*				clientFindByFd(int fd)										const;
-	Client*				clientFindByNickname(std::string const& name)				const;
-	Client*				clientFindConnectedByNickname(std::string const& name)		const;
-	void				clientChangesName(Client *cl, std::string const& newName);
-	void				clientIsReadyToReceiveMessage(Client const* cl);
-	void				clientDisconnects(Client *cl)								const;
-	void				addClient(Client *cl);
-	void				removeClient(Client *cl);
-	void				removeClientFromAllChannels(Client *cl);
+	std::set<Client *>			getUsersClientKnows(Client *cl)								const;
+	Client*						clientFindByFd(int fd)										const;
+	Client*						clientFindByNickname(std::string const& name)				const;
+	Client*						clientFindConnectedByNickname(std::string const& name)		const;
+	void						clientChangesName(Client *cl, std::string const& newName);
+	void						clientIsReadyToReceiveMessage(Client const* cl);
+	void						clientDisconnects(Client *cl);
+	void						addClient(Client *cl);
+	void						removeClient(Client *cl);
+	void						removeClientFromAllChannels(Client *cl);
 
 	int							getPort() 			const;
 	int							getServerSocketFd()	const;
@@ -50,22 +50,19 @@ public:
 	void						setPassword(std::string const& password);
 	void						setServerSockerFd(int fd);
 
-	TransferSession *transferSessionFindByToken(std::string const& token) const;
-	TransferSession *transferSessionFindByFd(int fd) const;
-	bool			isTransferFd(int fd) const;
+	TransferSession*			transferSessionFindByToken(std::string const& token) const;
+	TransferSession*			transferSessionFindByFd(int fd) const;
+	bool						isTransferFd(int fd) const;
 
 private:
 	// State
-	std::vector<struct pollfd>              	_pollfds;
-	int           				            	_serverSocketfd;
-	std::string     			            	_password;
-	int											_port;
+	std::vector<struct pollfd>		_pollfds;
+	int								_serverSocketfd;
+	std::string						_password;
+	int								_port;
 
 	// Registry
-	std::vector<Channel *>						_channels;
-	std::vector<Client *>						_clients;
-	std::vector<TransferSession *>				_transferSession;
-
-	// TEST
-	friend class Tester;
+	std::vector<Channel *>			_channels;
+	std::vector<Client *>			_clients;
+	std::vector<TransferSession *>	_transferSession;
 };

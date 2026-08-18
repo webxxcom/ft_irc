@@ -16,6 +16,8 @@ ServerState::~ServerState()
 		delete _clients[i];
 	for(size_t i = 0; i < _channels.size(); ++i)
 		delete _channels[i];
+	for(size_t i = 0; i < _transferSession.size(); ++i)
+		delete _transferSession[i];
 }
 
 int ServerState::poll()
@@ -75,6 +77,8 @@ Channel *ServerState::channelFindByName(std::string const &name) const
 
 void ServerState::removeChannel(Channel *ch)
 {
+	for (size_t i = 0; i < _clients.size(); ++i)
+		_clients[i]->revokeInvite(ch);
 	_channels.erase(std::find(_channels.begin(), _channels.end(), ch));
 	delete ch;
 }
@@ -91,7 +95,16 @@ void ServerState::addTransferSession(TransferSession *ts)
 
 void ServerState::removeTransferSession(TransferSession *ts)
 {
-	pollfdRemove(ts->listenerFd);
+	if (ts->listenerFd != -1)
+	{
+		pollfdRemove(ts->listenerFd);
+		close(ts->listenerFd);
+	}
+	if (ts->socketFd != -1)
+	{
+		pollfdRemove(ts->socketFd);
+		close(ts->socketFd);
+	}
 	_transferSession.erase(std::find(_transferSession.begin(), _transferSession.end(), ts));
 	delete ts;
 }
@@ -160,16 +173,27 @@ void ServerState::removeClient(Client *cl)
 	pollfdRemove(cl->getFd());
 	_clients.erase(std::find(_clients.begin(), _clients.end(), cl));
 	removeClientFromAllChannels(cl);
+
+	for (size_t i = 0; i < _transferSession.size(); )
+	{
+		if (_transferSession[i]->to == cl || _transferSession[i]->from == cl)
+			removeTransferSession(_transferSession[i]);
+		else
+			++i;
+	}
+
     delete cl;
 }
 
 void ServerState::removeClientFromAllChannels(Client *cl)
 {
-	for(size_t i = 0; i < _channels.size(); ++i)
+	std::vector<Channel *> cpy = _channels;
+	
+	for(size_t i = 0; i < cpy.size(); ++i)
 	{
-		_channels[i]->removeMember(cl);
-		if (_channels[i]->isEmpty())
-			removeChannel(_channels[i]);
+		cpy[i]->removeMember(cl);
+		if (cpy[i]->isEmpty())
+			removeChannel(cpy[i]);
 	}
 }
 
@@ -178,12 +202,13 @@ void ServerState::clientIsReadyToReceiveMessage(Client const* cl)
 	pollfdSetFdEvents(cl->getFd(), POLLIN | POLLOUT);
 }
 
-void ServerState::clientDisconnects(Client *cl) const
+void ServerState::clientDisconnects(Client *cl)
 {
 	if (!cl)
 		return;
 
 	cl->setPendingDisconnect(true);
+	pollfdSetFdEvents(cl->getFd(), POLLIN | POLLOUT);
 }
 
 std::vector<struct pollfd> const& 	ServerState::getPollFds() 			const	{ return _pollfds; }

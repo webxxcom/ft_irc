@@ -173,7 +173,7 @@ void CommandHandler::handleCap(Client *client, std::stringstream& command)
 
 static bool isValidChannelMask(std::string const& mask)
 {
-	return mask[0] == '#' && mask.size() > 2;
+	return !mask.empty() && mask[0] == '#' && mask.size() > 2;
 }
 
 // JOIN <channels> [<keys>]
@@ -188,7 +188,7 @@ void CommandHandler::handleJoin(Client *client, std::stringstream &command)
 
 	if (channelName.empty())
 		return _replyHandler.needMoreParams(client, "JOIN");
-		
+
 	std::stringstream channelList;
 	channelList << channelName;
 	std::stringstream keyList;
@@ -196,7 +196,8 @@ void CommandHandler::handleJoin(Client *client, std::stringstream &command)
 	while (!channelList.eof())
 	{
 		std::getline(channelList, channelName, ',');
-		
+		std::getline(keyList, key, ',');
+
 		if (!isValidChannelMask(channelName))
 		{
 			_replyHandler.noSuchChannel(client, channelName);
@@ -218,8 +219,7 @@ void CommandHandler::handleJoin(Client *client, std::stringstream &command)
 				_replyHandler.channelIsFull(client, channelName);
 				continue;
 			}
-			
-			std::getline(keyList, key, ',');
+
 			if (ch->getKey() != key)
 			{
 				_replyHandler.badChannelKey(client, channelName);
@@ -294,10 +294,12 @@ void CommandHandler::handleKick(Client *client, std::stringstream &command)
 	std::string channel;
 	std::string member;
 	std::string message;
-	command >> channel >> member >> message;
+	if (!(command >> channel >> member))
+		return _replyHandler.needMoreParams(client, "KICK");
+	command >> message;
 
 	if (channel[0] != '#' || channel.size() < 2)
-		return ;
+		return _replyHandler.badChannelMask(client, channel);
 
 	Channel * ch = _registry.channelFindByName(channel);
 	if (!ch)
@@ -319,6 +321,8 @@ void CommandHandler::handleKick(Client *client, std::stringstream &command)
 
 	ch->broadcast(msg, _registry);
 	ch->removeMember(target);
+	if (ch->isEmpty())
+		_registry.removeChannel(ch);
 }
 
 // INVITE <nickname> <channel>
@@ -328,10 +332,11 @@ void CommandHandler::handleInvite(Client *client, std::stringstream &command)
 		return _replyHandler.notRegistered(client);
 
 	std::string nickname, channelName;
-	command >> nickname >> channelName;
+	if (!(command >> nickname >> channelName))
+		return _replyHandler.needMoreParams(client, "INVITE");
 
 	if (channelName[0] != '#' || channelName.size() < 2)
-		return ;
+		return _replyHandler.badChannelMask(client, channelName);
 
 	Channel * ch = _registry.channelFindByName(channelName);
 	if (!ch)
@@ -415,7 +420,9 @@ void CommandHandler::handleMode(Client *client, std::stringstream &command)
 	std::string first;
 	std::string flags;
 	std::string param;
-	command >> first >> flags;
+	if (!(command >> first))
+		return _replyHandler.needMoreParams(client, "MODE");
+	command >> flags;
 
 	// Setting modes for a channel
 	if (first[0] == '#')
@@ -462,6 +469,7 @@ void CommandHandler::handleMode(Client *client, std::stringstream &command)
 							_replyHandler.keySet(client, ch->getName()); 
 							break;
 						}
+						param.clear();
 						command >> param;
 						if (flags[0] == '+' && param.empty()) _replyHandler.needMoreParams(client, "MODE");
 						else if (flags[0] == '+') ch->makeKey(param);
@@ -475,10 +483,11 @@ void CommandHandler::handleMode(Client *client, std::stringstream &command)
 					}
 					case 'l':
 					{
+						param.clear();
 						command >> param;
 						int limit = std::atoi(param.c_str());
-						if ((limit == 0 && flags[0] == '+') || (flags[0] == '+' && param.empty())) _replyHandler.needMoreParams(client, "MODE");
-						else if (flags[0] == '+' && !param.empty()) ch->makeUserLimit(limit);
+						if (flags[0] == '+' && (param.empty() || limit <= 0)) _replyHandler.needMoreParams(client, "MODE");
+						else if (flags[0] == '+') ch->makeUserLimit((size_t)limit);
 						else ch->removeMode(Channel::E_USER_LIMIT);
 
 						replyFlags += flags[i];
@@ -489,6 +498,7 @@ void CommandHandler::handleMode(Client *client, std::stringstream &command)
 					}
 					case 'o':
 					{
+						param.clear();
 						command >> param;
 						if (!param.empty())
 						{
@@ -533,7 +543,7 @@ void CommandHandler::handlePing(Client *client, std::stringstream &command)
 
 void CommandHandler::handleQuit(Client *client, std::stringstream &command)
 {
-	client->getFd();
+	_registry.removeClientFromAllChannels(client);
 	(void)command;
 }
 
@@ -580,6 +590,21 @@ bool fileExists(const std::string& path)
     return ::stat(path.c_str(), &st) == 0;
 }
 
+static bool isSafePath(std::string const& path)
+{
+    if (path.empty() || path[0] == '/')
+        return false;
+
+    std::stringstream segments(path);
+    std::string segment;
+    while (std::getline(segments, segment, '/'))
+    {
+        if (segment == "..")
+            return false;
+    }
+    return true;
+}
+
 //FILE SN <receiver nickname> <filename>
 //:<full prefix> FILE REQ <token> <filename> <filesize> <port>
 //FILE ACC <token>
@@ -601,7 +626,7 @@ void CommandHandler::handleFile(Client *client, std::stringstream &command)
 		Client *cl = _registry.clientFindConnectedByNickname(nick);
 		if (!cl)
 			return _replyHandler.noSuchNick(client, nick);
-		if (!fileExists(filename))
+		if (!isSafePath(filename) || !fileExists(filename))
 			return _replyHandler.fileIsAbsent(client, filename);
 		return _fileSendHandler.request(client, cl, filename);
 	}

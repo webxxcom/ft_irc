@@ -123,6 +123,14 @@ void Server::handleTransferFd(int fd, int ev)
             return ;
         }
 
+        if (fcntl(newfd, F_SETFL, O_NONBLOCK) == -1)
+        {
+            ::close(newfd);
+            ts->state = TransferSession::FAILED;
+            _state.removeTransferSession(ts);
+            return ;
+        }
+
         ::close(ts->listenerFd);
         _state.pollfdRemove(ts->listenerFd);
 
@@ -151,7 +159,7 @@ void Server::receiveClientData(Client *client)
     char    temp[512];
     ssize_t bytesread;
 
-    bytesread = recv(client->getFd(), temp, sizeof(temp), 0);
+    bytesread = recv(client->getFd(), temp, sizeof(temp) - 1, 0);
     if (bytesread > 0)
     {
         temp[bytesread] = '\0';
@@ -195,8 +203,8 @@ void Server::messageClient(Client *client) {
     client->clearInMssgs();
 
     ssize_t bytessend = ::send(client->getFd(), longMsg.c_str(), longMsg.length(), MSG_NOSIGNAL);
-    std::cout << "Client " << client->getNickname() + " receives: " << longMsg.substr(0, bytessend);
     if (bytessend > 0) {
+        std::cout << "Client " << client->getNickname() + " receives: " << longMsg.substr(0, bytessend);
         if (static_cast<size_t>(bytessend) < longMsg.length()) {
             client->addInMsg(longMsg.substr(bytessend));
             _state.pollfdSetFdEvents(client->getFd(), POLLIN | POLLOUT);
@@ -216,6 +224,10 @@ void Server::messageClient(Client *client) {
             std::cerr << "send() error" << std::endl;
             disconnectClient(client);
         }
+    }
+    else {
+        client->addInMsg(longMsg);
+        _state.pollfdSetFdEvents(client->getFd(), POLLIN | POLLOUT);
     }
     return ;
 }

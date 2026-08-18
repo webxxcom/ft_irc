@@ -28,23 +28,6 @@ Client::Client(int fd) : _fd(fd)
 	std::cout << "Client connected" << std::endl;
 }
 
-Client::Client(const Client &other) { *this = other; }
-
-Client &Client::operator=(const Client &other)
-{
-	_state = other._state;
-	_realname = other._realname;
-	_fd = other._fd;
-	_nickname = other._nickname;
-	_username = other._username;
-	_address = other._address;
-	_buffer = other._buffer;
-	_outMsg = other._outMsg;
-	_inMsg = other._inMsg;
-	
-	return *this;
-}
-
 Client::~Client() {
 	close(_fd);
 }
@@ -80,6 +63,7 @@ void Client::setIsCapNegotiating(bool flag) 			{ _state.cap_negotiating = flag; 
 void Client::setWasWelcomed(bool flag) 					{ _state.was_welcomed = flag; }
 void Client::setPendingDisconnect(bool flag)			{ _state.pendingDisconnect = flag; }
 void Client::getsInvitedTo(Channel *ch)					{ _invitedTo.push_back(ch); }
+void Client::revokeInvite(Channel *ch)					{ _invitedTo.erase(std::remove(_invitedTo.begin(), _invitedTo.end(), ch), _invitedTo.end()); }
 
 void Client::putIntoRecvBuffer(std::string const& data)
 {

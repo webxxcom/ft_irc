@@ -33,7 +33,11 @@ protected:
 	std::queue<std::string>         _outMsg;
 	std::queue<std::string>         _inMsg;
 	std::vector<Channel *>          _invitedTo;
-	
+
+private:
+	Client(const Client &orig);
+	Client &operator=(const Client &orig);
+
 public:
 	struct NickEquals {
 		explicit NickEquals(std::string const& target) : _target(target) { };
@@ -44,8 +48,6 @@ public:
 
 	// Constructors
 	explicit Client(int fd);
-	Client(const Client &orig);
-	Client&operator=(const Client &orig);
 	~Client();
 
 	bool operator==(Client const& other) const;
@@ -81,6 +83,7 @@ public:
 	void setWasWelcomed(bool flag);
 	void setPendingDisconnect(bool flag);
 	void getsInvitedTo(Channel *ch);
+	void revokeInvite(Channel *ch);
 
 	void putIntoRecvBuffer(std::string const& data);
 	void receiveMsg(std::string const& msg, ServerState &state);

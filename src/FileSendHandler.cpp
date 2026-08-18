@@ -10,6 +10,7 @@
 #include <cstring>
 #include <unistd.h>
 #include <sstream>
+#include <fcntl.h>
 #include "FileSendHandler.hpp"
 #include "TransferSession.hpp"
 
@@ -52,6 +53,12 @@ int createListener(int port, int &realPort)
         return -1;
     }
 
+    if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0)
+    {
+        ::close(fd);
+        return -1;
+    }
+
     sockaddr_in bound;
     socklen_t len = sizeof(bound);
 
@@ -82,6 +89,12 @@ void FileSendHandler::request(Client *sender, Client *recevier, std::string cons
     ts->size = verifyAndGetSize(filename);
     int port;
     ts->listenerFd = createListener(0, port);
+    if (ts->listenerFd == -1)
+    {
+        delete ts;
+        sender->receiveMsg(":server FILE ERR :could not open a transfer port\r\n", _registry);
+        return;
+    }
     ts->state = ts->WAITING_RESPONSE;
     ts->token = makeToken();
     ts->to = recevier;
